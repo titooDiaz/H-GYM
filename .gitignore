@@ -1,0 +1,60 @@
+# ==========================================
+# ANDROID & GRADLE BUILD ARTIFACTS
+# ==========================================
+/build/
+**/build/
+.gradle/
+/.gradle/
+local.properties
+*.iml
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+out/
+target/
+
+# ==========================================
+# SENSITIVE CREDENTIALS & FIREBASE / GCP SECRETS
+# ==========================================
+google-services.json
+**/google-services.json
+google-services-desktop.json
+service-account*.json
+firebase-adminsdk*.json
+*.jks
+*.keystore
+*.p12
+*.pem
+signing.properties
+secrets.properties
+credentials.properties
+release.properties
+publish.properties
+apikey.properties
+*.pfx
+
+# ==========================================
+# ANDROID STUDIO & IDE USER PREFERENCES / CACHES
+# ==========================================
+.idea/caches/
+.idea/libraries/
+.idea/modules.xml
+.idea/workspace.xml
+.idea/navEditor.xml
+.idea/assetWizardSettings.xml
+.idea/deploymentTargetSelector.xml
+.idea/compiler.xml
+.idea/gradle.xml
+.idea/watcherSettings.xml
+.idea/shelf/
+.idea/dictionaries/
+.kotlin/
+captures/
+.externalNativeBuild/
+.cxx/
+*.log
+*.tmp
+*.hprof
+lint-results*
+benchmark/
