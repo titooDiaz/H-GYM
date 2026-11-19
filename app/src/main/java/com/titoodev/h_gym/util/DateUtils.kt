@@ -24,4 +24,18 @@ object DateUtils {
         }
         return calendar.timeInMillis
     }
+
+    fun getCurrentDayOfWeekCode(timestamp: Long = System.currentTimeMillis()): String {
+        val cal = Calendar.getInstance().apply { timeInMillis = timestamp }
+        return when (cal.get(Calendar.DAY_OF_WEEK)) {
+            Calendar.MONDAY -> "L"
+            Calendar.TUESDAY -> "M"
+            Calendar.WEDNESDAY -> "X"
+            Calendar.THURSDAY -> "J"
+            Calendar.FRIDAY -> "V"
+            Calendar.SATURDAY -> "S"
+            Calendar.SUNDAY -> "D"
+            else -> "L"
+        }
+    }
 }

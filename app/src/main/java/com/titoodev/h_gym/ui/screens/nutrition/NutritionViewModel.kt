@@ -65,12 +65,14 @@ class NutritionViewModel(application: Application) : AndroidViewModel(applicatio
                 timestamp = timestamp
             )
             repository.addFoodLog(foodLog)
+            com.titoodev.h_gym.data.sync.CloudSyncManager.syncLocalDataToCloud(getApplication())
         }
     }
 
     fun deleteMeal(id: Long) {
         viewModelScope.launch {
             repository.deleteFoodLog(id)
+            com.titoodev.h_gym.data.sync.CloudSyncManager.syncLocalDataToCloud(getApplication())
         }
     }
 }

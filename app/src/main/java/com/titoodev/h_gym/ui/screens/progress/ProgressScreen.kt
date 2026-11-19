@@ -4,7 +4,6 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.TrendingUp
@@ -22,9 +21,110 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.titoodev.h_gym.data.local.entities.BodyMeasurementEntity
 import com.titoodev.h_gym.ui.components.rememberHGymHaptics
 import java.text.SimpleDateFormat
 import java.util.*
+
+@Composable
+fun BodyMeasurementChartCard(
+    title: String,
+    unit: String,
+    measurements: List<BodyMeasurementEntity>,
+    selector: (BodyMeasurementEntity) -> Float?
+) {
+    val sorted = remember(measurements) { measurements.sortedBy { it.timestamp } }
+    val dataPoints = remember(sorted) {
+        sorted.mapNotNull { m ->
+            val v = selector(m)
+            if (v != null && v > 0f) Pair(m.timestamp, v) else null
+        }
+    }
+
+    if (dataPoints.isEmpty()) return
+
+    val primaryColor = MaterialTheme.colorScheme.primary
+    val surfaceColor = MaterialTheme.colorScheme.surface
+
+    Card(
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = surfaceColor),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(20.dp)) {
+            val latest = dataPoints.last().second
+            val first = dataPoints.first().second
+            val diff = latest - first
+            val diffStr = if (diff >= 0) "+${String.format(Locale.getDefault(), "%.1f", diff)} $unit" else "${String.format(Locale.getDefault(), "%.1f", diff)} $unit"
+            val prev = if (dataPoints.size >= 2) dataPoints[dataPoints.size - 2].second else null
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(text = title, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                Text(text = "${String.format(Locale.getDefault(), "%.1f", latest)} $unit", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = primaryColor)
+            }
+
+            Spacer(modifier = Modifier.height(4.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(text = "Progreso total: $diffStr (${dataPoints.size} registros)", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
+                if (prev != null) {
+                    Text(text = "Anterior: ${String.format(Locale.getDefault(), "%.1f", prev)} $unit", fontSize = 12.sp, color = primaryColor, fontWeight = FontWeight.SemiBold)
+                }
+            }
+
+            if (dataPoints.size >= 2) {
+                Spacer(modifier = Modifier.height(14.dp))
+                val values = dataPoints.map { it.second }
+                val minV = values.minOrNull() ?: 0f
+                val maxV = values.maxOrNull() ?: 100f
+                val range = if (maxV - minV == 0f) 1f else maxV - minV
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(120.dp)
+                        .padding(vertical = 4.dp)
+                ) {
+                    Canvas(modifier = Modifier.fillMaxSize()) {
+                        val width = size.width
+                        val height = size.height
+                        val points = values.mapIndexed { idx, v ->
+                            val x = (idx.toFloat() / (values.size - 1).coerceAtLeast(1)) * width
+                            val y = height - (((v - minV) / range) * (height - 20.dp.toPx()) + 10.dp.toPx())
+                            Offset(x, y)
+                        }
+
+                        val path = Path().apply {
+                            points.forEachIndexed { i, pt ->
+                                if (i == 0) moveTo(pt.x, pt.y) else lineTo(pt.x, pt.y)
+                            }
+                        }
+
+                        drawPath(
+                            path = path,
+                            color = primaryColor,
+                            style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round)
+                        )
+
+                        points.forEach { pt ->
+                            drawCircle(
+                                color = primaryColor,
+                                radius = 4.dp.toPx(),
+                                center = pt
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -32,6 +132,7 @@ fun ProgressScreen(
     viewModel: ProgressViewModel = viewModel()
 ) {
     val haptics = rememberHGymHaptics()
+    var selectedTab by remember { mutableIntStateOf(0) }
 
     val allMeasurements by viewModel.allMeasurementsState.collectAsState()
     val latestMeasurement by viewModel.latestMeasurementState.collectAsState()
@@ -50,37 +151,68 @@ fun ProgressScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Evolución Física y Estadísticas", fontWeight = FontWeight.Bold) },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background,
-                    titleContentColor = MaterialTheme.colorScheme.onBackground
+            Column {
+                TopAppBar(
+                    title = { Text("Evolución Física y Constancia", fontWeight = FontWeight.Bold) },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.background,
+                        titleContentColor = MaterialTheme.colorScheme.onBackground
+                    )
                 )
-            )
+
+                TabRow(selectedTabIndex = selectedTab) {
+                    Tab(
+                        selected = selectedTab == 0,
+                        onClick = {
+                            haptics.performClick()
+                            selectedTab = 0
+                        },
+                        text = { Text("Mapa de Constancia", fontWeight = FontWeight.Bold) }
+                    )
+                    Tab(
+                        selected = selectedTab == 1,
+                        onClick = {
+                            haptics.performClick()
+                            selectedTab = 1
+                        },
+                        text = { Text("Evolución y Medidas", fontWeight = FontWeight.Bold) }
+                    )
+                }
+            }
         },
         floatingActionButton = {
-            FloatingActionButton(
-                onClick = {
-                    haptics.performSuccess()
-                    weightInput = latestMeasurement?.weight?.toString() ?: "70.0"
-                    showAddMeasurementDialog = true
-                },
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary
-            ) {
-                Icon(Icons.Default.Add, contentDescription = "Registrar Medidas")
+            if (selectedTab == 1) {
+                FloatingActionButton(
+                    onClick = {
+                        haptics.performSuccess()
+                        weightInput = latestMeasurement?.weight?.toString() ?: "70.0"
+                        chestInput = latestMeasurement?.chest?.toString() ?: ""
+                        waistInput = latestMeasurement?.waist?.toString() ?: ""
+                        armInput = latestMeasurement?.arm?.toString() ?: ""
+                        thighInput = latestMeasurement?.thigh?.toString() ?: ""
+                        fatInput = latestMeasurement?.bodyFatPercentage?.toString() ?: ""
+                        showAddMeasurementDialog = true
+                    },
+                    containerColor = com.titoodev.h_gym.ui.components.DuolingoGreen,
+                    contentColor = MaterialTheme.colorScheme.onPrimary
+                ) {
+                    Icon(Icons.Default.Add, contentDescription = "Registrar Medidas")
+                }
             }
         }
     ) { innerPadding ->
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(MaterialTheme.colorScheme.background)
-                .padding(innerPadding)
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            // Real Body Weight Line Chart Card
+        Box(modifier = Modifier.padding(innerPadding)) {
+            if (selectedTab == 0) {
+                ComplianceHeatmapScreen(viewModel = viewModel)
+            } else {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(MaterialTheme.colorScheme.background)
+                        .padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+            // 1. Real Body Weight Line Chart Card
             item {
                 Card(
                     shape = RoundedCornerShape(24.dp),
@@ -111,14 +243,25 @@ fun ProgressScreen(
                             val lastWeight = sortedMeasurements.last().weight
                             val diff = lastWeight - firstWeight
                             val diffText = if (diff >= 0) "+${String.format(Locale.getDefault(), "%.1f", diff)} kg" else "${String.format(Locale.getDefault(), "%.1f", diff)} kg"
+                            val prevWeight = sortedMeasurements[sortedMeasurements.size - 2].weight
 
                             Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                text = "Evolución acumulada: $diffText (${sortedMeasurements.size} registros)",
-                                fontSize = 13.sp,
-                                color = primaryColor,
-                                fontWeight = FontWeight.SemiBold
-                            )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(
+                                    text = "Progreso total: $diffText (${sortedMeasurements.size} registros)",
+                                    fontSize = 12.sp,
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                                )
+                                Text(
+                                    text = "Anterior: $prevWeight kg",
+                                    fontSize = 12.sp,
+                                    color = primaryColor,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
 
                             Spacer(modifier = Modifier.height(16.dp))
 
@@ -131,8 +274,8 @@ fun ProgressScreen(
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .height(140.dp)
-                                    .padding(vertical = 8.dp)
+                                    .height(120.dp)
+                                    .padding(vertical = 4.dp)
                             ) {
                                 Canvas(modifier = Modifier.fillMaxSize()) {
                                     val width = size.width
@@ -158,7 +301,7 @@ fun ProgressScreen(
                                     points.forEach { pt ->
                                         drawCircle(
                                             color = primaryColor,
-                                            radius = 5.dp.toPx(),
+                                            radius = 4.dp.toPx(),
                                             center = pt
                                         )
                                     }
@@ -183,7 +326,53 @@ fun ProgressScreen(
                 }
             }
 
-            // Real Estimated 1RM List Card
+            // 2. Body Measurements Evolution Charts (Waist, Chest, Arm, Thigh, Body Fat)
+            item {
+                BodyMeasurementChartCard(
+                    title = "Evolución de Cintura",
+                    unit = "cm",
+                    measurements = allMeasurements,
+                    selector = { it.waist }
+                )
+            }
+
+            item {
+                BodyMeasurementChartCard(
+                    title = "Evolución de Pecho",
+                    unit = "cm",
+                    measurements = allMeasurements,
+                    selector = { it.chest }
+                )
+            }
+
+            item {
+                BodyMeasurementChartCard(
+                    title = "Evolución de Brazo",
+                    unit = "cm",
+                    measurements = allMeasurements,
+                    selector = { it.arm }
+                )
+            }
+
+            item {
+                BodyMeasurementChartCard(
+                    title = "Evolución de Muslo",
+                    unit = "cm",
+                    measurements = allMeasurements,
+                    selector = { it.thigh }
+                )
+            }
+
+            item {
+                BodyMeasurementChartCard(
+                    title = "Evolución de % Grasa Corporal",
+                    unit = "%",
+                    measurements = allMeasurements,
+                    selector = { it.bodyFatPercentage }
+                )
+            }
+
+            // 3. Real Estimated 1RM List Card
             item {
                 Card(
                     shape = RoundedCornerShape(24.dp),
@@ -243,7 +432,7 @@ fun ProgressScreen(
                 }
             }
 
-            // Real Body Measurements Card
+            // 4. Real Body Measurements Summary & Comparison Card
             item {
                 Card(
                     shape = RoundedCornerShape(24.dp),
@@ -257,7 +446,7 @@ fun ProgressScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = "Medidas Corporales de Referencia",
+                                text = "Últimas Medidas vs. Anterior",
                                 fontSize = 16.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onSurface
@@ -266,30 +455,41 @@ fun ProgressScreen(
                         }
                         Spacer(modifier = Modifier.height(8.dp))
 
-                        val m = latestMeasurement
-                        if (m != null) {
+                        val sortedList = remember(allMeasurements) { allMeasurements.sortedBy { it.timestamp } }
+                        val latest = sortedList.lastOrNull()
+                        val previous = if (sortedList.size >= 2) sortedList[sortedList.size - 2] else null
+
+                        if (latest != null) {
                             val sdf = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
                             Text(
-                                text = "Último registro (${sdf.format(Date(m.timestamp))}):",
+                                text = "Último registro (${sdf.format(Date(latest.timestamp))}):",
                                 fontSize = 12.sp,
                                 color = primaryColor,
                                 fontWeight = FontWeight.SemiBold
                             )
                             Spacer(modifier = Modifier.height(8.dp))
 
+                            fun diffText(curr: Float?, prev: Float?, unit: String): String {
+                                if (curr == null) return "-"
+                                if (prev == null) return "${curr} $unit"
+                                val d = curr - prev
+                                val sign = if (d > 0) "+" else ""
+                                return "${curr} $unit (${sign}${String.format(Locale.getDefault(), "%.1f", d)} $unit)"
+                            }
+
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
                                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                    Text(text = "• Peso: ${m.weight} kg", fontSize = 13.sp)
-                                    Text(text = "• Cintura: ${m.waist ?: "-"} cm", fontSize = 13.sp)
-                                    Text(text = "• Pecho: ${m.chest ?: "-"} cm", fontSize = 13.sp)
+                                    Text(text = "• Peso: ${diffText(latest.weight, previous?.weight, "kg")}", fontSize = 13.sp)
+                                    Text(text = "• Cintura: ${diffText(latest.waist, previous?.waist, "cm")}", fontSize = 13.sp)
+                                    Text(text = "• Pecho: ${diffText(latest.chest, previous?.chest, "cm")}", fontSize = 13.sp)
                                 }
                                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                    Text(text = "• Brazo: ${m.arm ?: "-"} cm", fontSize = 13.sp)
-                                    Text(text = "• Muslo: ${m.thigh ?: "-"} cm", fontSize = 13.sp)
-                                    Text(text = "• % Grasa: ${m.bodyFatPercentage ?: "-"}%", fontSize = 13.sp)
+                                    Text(text = "• Brazo: ${diffText(latest.arm, previous?.arm, "cm")}", fontSize = 13.sp)
+                                    Text(text = "• Muslo: ${diffText(latest.thigh, previous?.thigh, "cm")}", fontSize = 13.sp)
+                                    Text(text = "• % Grasa: ${diffText(latest.bodyFatPercentage, previous?.bodyFatPercentage, "%")}", fontSize = 13.sp)
                                 }
                             }
                         } else {
@@ -304,6 +504,7 @@ fun ProgressScreen(
             }
         }
     }
+}
 
     // Add Measurement Dialog
     if (showAddMeasurementDialog) {
@@ -311,7 +512,10 @@ fun ProgressScreen(
             onDismissRequest = { showAddMeasurementDialog = false },
             title = { Text("Registrar Nuevo Peso y Medidas") },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    modifier = Modifier.heightIn(max = 400.dp)
+                ) {
                     OutlinedTextField(
                         value = weightInput,
                         onValueChange = { weightInput = it },
@@ -322,28 +526,35 @@ fun ProgressScreen(
                     OutlinedTextField(
                         value = waistInput,
                         onValueChange = { waistInput = it },
-                        label = { Text("Cintura (cm) opcional") },
+                        label = { Text("Cintura (cm)") },
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(10.dp)
                     )
                     OutlinedTextField(
                         value = chestInput,
                         onValueChange = { chestInput = it },
-                        label = { Text("Pecho (cm) opcional") },
+                        label = { Text("Pecho (cm)") },
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(10.dp)
                     )
                     OutlinedTextField(
                         value = armInput,
                         onValueChange = { armInput = it },
-                        label = { Text("Brazo (cm) opcional") },
+                        label = { Text("Brazo (cm)") },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(10.dp)
+                    )
+                    OutlinedTextField(
+                        value = thighInput,
+                        onValueChange = { thighInput = it },
+                        label = { Text("Muslo (cm)") },
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(10.dp)
                     )
                     OutlinedTextField(
                         value = fatInput,
                         onValueChange = { fatInput = it },
-                        label = { Text("% Grasa Corporal opcional") },
+                        label = { Text("% Grasa Corporal") },
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(10.dp)
                     )
@@ -376,4 +587,5 @@ fun ProgressScreen(
             }
         )
     }
+}
 }

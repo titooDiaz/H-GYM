@@ -29,6 +29,8 @@ class HGymRepository(
     fun getExercisesByMuscleGroup(muscleGroup: String): Flow<List<ExerciseEntity>> = exerciseDao.getExercisesByMuscleGroup(muscleGroup)
     suspend fun getExerciseById(id: Long): ExerciseEntity? = exerciseDao.getExerciseById(id)
     suspend fun addExercise(exercise: ExerciseEntity): Long = exerciseDao.insertExercise(exercise)
+    suspend fun deleteExercise(exerciseId: Long) = exerciseDao.deleteExercise(exerciseId)
+    suspend fun getRoutinesCountForExercise(exerciseId: Long): Int = exerciseDao.getRoutinesCountForExercise(exerciseId)
     fun getExerciseHistory(exerciseId: Long): Flow<List<ExercisePerformanceEntity>> = exerciseDao.getPerformanceHistory(exerciseId)
     fun getSetsHistoryForExercise(exerciseId: Long): Flow<List<WorkoutSetEntity>> = exerciseDao.getSetsHistoryForExercise(exerciseId)
     suspend fun addExercisePerformance(performance: ExercisePerformanceEntity) = exerciseDao.insertPerformance(performance)
@@ -44,6 +46,11 @@ class HGymRepository(
     val routinesWithItemsFlow: Flow<List<RoutineWithItems>> = workoutDao.getAllRoutinesWithItems()
     suspend fun saveRoutine(routine: RoutineEntity): Long = workoutDao.insertRoutine(routine)
     suspend fun saveRoutineItem(item: RoutineItemEntity) = workoutDao.insertRoutineItem(item)
+    suspend fun deleteRoutine(routineId: Long) {
+        workoutDao.deleteRoutineItems(routineId)
+        workoutDao.deleteRoutine(routineId)
+    }
+    suspend fun getIncompleteWorkout(): WorkoutEntity? = workoutDao.getIncompleteWorkout()
 
     // Food & Nutrition
     val foodLogsFlow: Flow<List<FoodLogEntity>> = foodDao.getAllFoodLogs()

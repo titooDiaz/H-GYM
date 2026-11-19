@@ -47,4 +47,13 @@ interface WorkoutDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertRoutineItem(item: RoutineItemEntity)
+
+    @Query("DELETE FROM routines WHERE id = :routineId")
+    suspend fun deleteRoutine(routineId: Long)
+
+    @Query("DELETE FROM routine_items WHERE routineId = :routineId")
+    suspend fun deleteRoutineItems(routineId: Long)
+
+    @Query("SELECT * FROM workouts WHERE status = 'INCOMPLETE' ORDER BY date DESC LIMIT 1")
+    suspend fun getIncompleteWorkout(): WorkoutEntity?
 }

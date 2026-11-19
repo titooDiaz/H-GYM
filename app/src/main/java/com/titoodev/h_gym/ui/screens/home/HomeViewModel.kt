@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.titoodev.h_gym.data.local.database.HGymDatabase
 import com.titoodev.h_gym.data.local.entities.BodyMeasurementEntity
 import com.titoodev.h_gym.data.local.entities.FoodLogEntity
+import com.titoodev.h_gym.data.local.entities.RoutineWithItems
 import com.titoodev.h_gym.data.local.entities.UserEntity
 import com.titoodev.h_gym.data.local.entities.WorkoutWithSets
 import com.titoodev.h_gym.data.repository.HGymRepository
@@ -31,6 +32,9 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
     val latestMeasurementState: StateFlow<BodyMeasurementEntity?> = repository.latestMeasurementFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
+    val allRoutinesWithItemsState: StateFlow<List<RoutineWithItems>> = repository.routinesWithItemsFlow
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     @OptIn(ExperimentalCoroutinesApi::class)
     val foodLogsForSelectedDate: StateFlow<List<FoodLogEntity>> = selectedDateTimestamp.flatMapLatest { timestamp ->

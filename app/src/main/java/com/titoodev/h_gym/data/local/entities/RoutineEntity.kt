@@ -7,6 +7,7 @@ import androidx.room.PrimaryKey
 data class RoutineEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val name: String,
-    val description: String,
-    val targetType: String
+    val description: String = "",
+    val targetType: String = "Fuerza",
+    val daysOfWeek: String = "L,M,X,J,V" // Comma-separated (L, M, X, J, V, S, D)
 )

@@ -76,6 +76,12 @@ class MainActivity : ComponentActivity() {
 
             LaunchedEffect(isAuthenticatedState) {
                 if (isAuthenticatedState) {
+                    val appContext = applicationContext
+                    coroutineScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                        com.titoodev.h_gym.data.sync.CloudSyncManager.fetchCloudDataToLocal(appContext)
+                        com.titoodev.h_gym.data.sync.CloudSyncManager.syncLocalDataToCloud(appContext)
+                    }
+
                     db.userDao().getUser().collect { user ->
                         isProfileCompletedState = user != null
                     }

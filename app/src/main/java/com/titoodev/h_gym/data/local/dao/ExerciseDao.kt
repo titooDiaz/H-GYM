@@ -34,4 +34,13 @@ interface ExerciseDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertPerformance(performance: ExercisePerformanceEntity)
+
+    @Query("DELETE FROM exercises WHERE id = :exerciseId")
+    suspend fun deleteExercise(exerciseId: Long)
+
+    @Query("SELECT COUNT(*) FROM routine_items WHERE exerciseId = :exerciseId")
+    suspend fun getRoutinesCountForExercise(exerciseId: Long): Int
+
+    @Query("DELETE FROM exercises WHERE isCustom = 0")
+    suspend fun clearSystemSeededExercises()
 }

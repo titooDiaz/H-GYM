@@ -1,11 +1,13 @@
 package com.titoodev.h_gym.ui.screens.exercises
 
 import android.app.Application
+import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.titoodev.h_gym.data.local.database.HGymDatabase
 import com.titoodev.h_gym.data.local.entities.ExerciseEntity
 import com.titoodev.h_gym.data.repository.HGymRepository
+import com.titoodev.h_gym.util.ImageUtils
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
@@ -25,22 +27,42 @@ class ExerciseCatalogViewModel(application: Application) : AndroidViewModel(appl
     val exercisesState: StateFlow<List<ExerciseEntity>> = repository.exercisesFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    fun addCustomExercise(
+    fun saveExercise(
+        id: Long = 0L,
         name: String,
-        muscleGroup: String,
-        equipment: String?,
-        exerciseType: String = "Fuerza"
+        description: String?,
+        photoUri: Uri?,
+        muscleGroup: String = "General",
+        equipment: String? = "Libre"
     ) {
         viewModelScope.launch {
-            repository.addExercise(
-                ExerciseEntity(
-                    name = name,
-                    muscleGroup = muscleGroup,
-                    equipment = equipment,
-                    exerciseType = exerciseType,
-                    isCustom = true
-                )
+            var compressedPath: String? = null
+            if (photoUri != null) {
+                val compressedFile = ImageUtils.compressImageTo100Kb(getApplication(), photoUri)
+                compressedPath = compressedFile?.absolutePath
+            }
+
+            val exercise = ExerciseEntity(
+                id = id,
+                name = name,
+                muscleGroup = muscleGroup,
+                description = description,
+                localPhotoPath = compressedPath,
+                equipment = equipment,
+                exerciseType = "Fuerza",
+                isCustom = true
             )
+            repository.addExercise(exercise)
+        }
+    }
+
+    suspend fun getRoutinesCountForExercise(exerciseId: Long): Int {
+        return repository.getRoutinesCountForExercise(exerciseId)
+    }
+
+    fun deleteExercise(exerciseId: Long) {
+        viewModelScope.launch {
+            repository.deleteExercise(exerciseId)
         }
     }
 }

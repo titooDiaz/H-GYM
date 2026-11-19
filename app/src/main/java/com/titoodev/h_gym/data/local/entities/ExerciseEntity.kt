@@ -10,6 +10,7 @@ data class ExerciseEntity(
     val muscleGroup: String,
     val secondaryMuscles: String? = null,
     val description: String? = null,
+    val localPhotoPath: String? = null,
     val equipment: String? = null,
     val exerciseType: String = "Fuerza",
     val personalNotes: String? = null,

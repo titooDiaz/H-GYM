@@ -27,5 +27,8 @@ data class WorkoutSetEntity(
     val setNumber: Int,
     val weight: Float,
     val reps: Int,
-    val rirOrRpe: Float? = null
+    val rirOrRpe: Float? = null,
+    val durationSeconds: Long = 0L,
+    val unit: String = "kg",
+    val notes: String? = null
 )

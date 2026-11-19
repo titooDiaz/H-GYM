@@ -17,5 +17,6 @@ data class UserEntity(
     val experienceLevel: String,
     val trainingFrequency: Int,
     val preferredTrainingType: String,
+    val preferredUnit: String = "kg",
     val updatedAt: Long
 )

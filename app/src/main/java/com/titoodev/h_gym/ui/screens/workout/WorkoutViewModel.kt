@@ -49,6 +49,7 @@ class WorkoutViewModel(application: Application) : AndroidViewModel(application)
             sets.forEach { setItem ->
                 repository.saveWorkoutSet(setItem.copy(workoutId = workoutId))
             }
+            com.titoodev.h_gym.data.sync.CloudSyncManager.syncLocalDataToCloud(getApplication())
         }
     }
 
@@ -60,6 +61,45 @@ class WorkoutViewModel(application: Application) : AndroidViewModel(application)
                 targetType = targetType
             )
             repository.saveRoutine(routine)
+            com.titoodev.h_gym.data.sync.CloudSyncManager.syncLocalDataToCloud(getApplication())
+        }
+    }
+
+    fun saveFullRoutine(
+        id: Long = 0L,
+        name: String,
+        daysOfWeek: String,
+        exerciseIds: List<Long>
+    ) {
+        viewModelScope.launch {
+            if (id > 0L) {
+                repository.deleteRoutine(id)
+            }
+            val routine = RoutineEntity(
+                id = if (id > 0L) id else 0L,
+                name = name,
+                description = "Rutina personalizada (${daysOfWeek})",
+                targetType = "Semanal",
+                daysOfWeek = daysOfWeek
+            )
+            val routineId = repository.saveRoutine(routine)
+            exerciseIds.forEachIndexed { idx, exId ->
+                repository.saveRoutineItem(
+                    RoutineItemEntity(
+                        routineId = routineId,
+                        exerciseId = exId,
+                        orderIndex = idx
+                    )
+                )
+            }
+            com.titoodev.h_gym.data.sync.CloudSyncManager.syncLocalDataToCloud(getApplication())
+        }
+    }
+
+    fun deleteRoutine(routineId: Long) {
+        viewModelScope.launch {
+            repository.deleteRoutine(routineId)
+            com.titoodev.h_gym.data.sync.CloudSyncManager.syncLocalDataToCloud(getApplication())
         }
     }
 }

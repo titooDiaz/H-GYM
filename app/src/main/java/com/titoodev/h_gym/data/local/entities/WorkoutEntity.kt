@@ -9,5 +9,8 @@ data class WorkoutEntity(
     val title: String,
     val date: Long,
     val durationSeconds: Long,
-    val notes: String?
+    val notes: String? = null,
+    val routineId: Long? = null,
+    val status: String = "COMPLETED", // "COMPLETED" or "INCOMPLETE"
+    val actualExerciseOrderJson: String? = null
 )

@@ -19,9 +19,11 @@ import com.titoodev.h_gym.R
 import com.titoodev.h_gym.ui.components.HGymDatePickerBar
 import com.titoodev.h_gym.ui.components.rememberHGymHaptics
 import com.titoodev.h_gym.ui.screens.community.CommunityScreen
+import com.titoodev.h_gym.ui.screens.exercises.ExerciseCatalogScreen
 import com.titoodev.h_gym.ui.screens.home.HomeScreen
 import com.titoodev.h_gym.ui.screens.nutrition.NutritionScreen
 import com.titoodev.h_gym.ui.screens.progress.ProgressScreen
+import com.titoodev.h_gym.ui.screens.routines.RoutinesScreen
 import com.titoodev.h_gym.ui.screens.workout.WorkoutScreen
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -34,6 +36,7 @@ fun HGymMainScreen(
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
     var selectedDateTimestamp by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    var pendingRoutineIdToStart by remember { mutableStateOf<Long?>(null) }
 
     var showQuickActionSheet by remember { mutableStateOf(false) }
 
@@ -52,7 +55,7 @@ fun HGymMainScreen(
                                 modifier = Modifier.size(32.dp)
                             )
                             Text(
-                                text = "H-GYM",
+                                text = Screen.fromRoute(currentRoute).title,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onBackground
                             )
@@ -103,13 +106,28 @@ fun HGymMainScreen(
             composable(Screen.Home.route) {
                 HomeScreen(
                     selectedDateTimestamp = selectedDateTimestamp,
-                    onSignOut = onSignOut
+                    onSignOut = onSignOut,
+                    onStartWorkout = { routineId ->
+                        pendingRoutineIdToStart = routineId
+                        navController.navigate(Screen.Workout.route)
+                    }
                 )
             }
+            composable(Screen.Routines.route) {
+                RoutinesScreen(
+                    onStartRoutine = { routineId ->
+                        pendingRoutineIdToStart = routineId
+                        navController.navigate(Screen.Workout.route)
+                    }
+                )
+            }
+            composable(Screen.Exercises.route) { ExerciseCatalogScreen() }
             composable(Screen.Nutrition.route) {
                 NutritionScreen(selectedDateTimestamp = selectedDateTimestamp)
             }
-            composable(Screen.Workout.route) { WorkoutScreen() }
+            composable(Screen.Workout.route) {
+                WorkoutScreen(routineIdToStart = pendingRoutineIdToStart)
+            }
             composable(Screen.Progress.route) { ProgressScreen() }
             composable(Screen.Community.route) { CommunityScreen() }
         }

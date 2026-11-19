@@ -3,13 +3,16 @@ package com.titoodev.h_gym.ui.screens.home
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.filled.EmojiEvents
+import androidx.compose.material.icons.filled.FitnessCenter
 import androidx.compose.material.icons.filled.MonitorWeight
 import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -23,9 +26,9 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.google.firebase.auth.FirebaseAuth
 import com.titoodev.h_gym.data.local.preferences.ThemePreferences
 import com.titoodev.h_gym.data.local.preferences.ThemeSettings
-import com.titoodev.h_gym.ui.components.ThemeSelectorCard
-import com.titoodev.h_gym.ui.components.rememberHGymHaptics
+import com.titoodev.h_gym.ui.components.*
 import com.titoodev.h_gym.ui.theme.ThemeVariant
+import com.titoodev.h_gym.util.DateUtils
 import kotlinx.coroutines.launch
 import java.util.Calendar
 
@@ -33,6 +36,7 @@ import java.util.Calendar
 fun HomeScreen(
     selectedDateTimestamp: Long = System.currentTimeMillis(),
     onSignOut: () -> Unit,
+    onStartWorkout: (routineId: Long?) -> Unit = {},
     viewModel: HomeViewModel = viewModel()
 ) {
     val haptics = rememberHGymHaptics()
@@ -51,12 +55,22 @@ fun HomeScreen(
     val latestMeasurementState by viewModel.latestMeasurementState.collectAsState()
     val foodLogsState by viewModel.foodLogsForSelectedDate.collectAsState()
     val workoutsState by viewModel.workoutsForSelectedDate.collectAsState()
+    val allRoutinesWithItems by viewModel.allRoutinesWithItemsState.collectAsState()
 
     val firebaseUser = FirebaseAuth.getInstance().currentUser
     val userName = userState?.name ?: firebaseUser?.displayName ?: "Atleta H-GYM"
     val userEmail = userState?.email ?: firebaseUser?.email ?: "Modo offline / Invitado"
     val currentWeight = latestMeasurementState?.weight ?: userState?.currentWeight ?: 70.0f
     val userGoals = userState?.goals?.ifBlank { "Ganar masa muscular" } ?: "Ganar masa muscular"
+
+    val todayCode = remember(selectedDateTimestamp) { DateUtils.getCurrentDayOfWeekCode(selectedDateTimestamp) }
+
+    val routinesForToday = remember(allRoutinesWithItems, todayCode) {
+        allRoutinesWithItems.filter { rItem ->
+            val days = rItem.routine.daysOfWeek.split(",").map { it.trim() }
+            days.contains(todayCode)
+        }
+    }
 
     var showThemeDialog by remember { mutableStateOf(false) }
 
@@ -141,6 +155,74 @@ fun HomeScreen(
                             imageVector = Icons.AutoMirrored.Filled.ExitToApp,
                             contentDescription = "Cerrar Sesión",
                             tint = MaterialTheme.colorScheme.error
+                        )
+                    }
+                }
+            }
+        }
+
+        // Today's Scheduled Routines Section (Duolingo Style)
+        item {
+            Text(
+                text = "Rutinas de HOY ($todayCode)",
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onBackground
+            )
+        }
+
+        if (routinesForToday.isEmpty()) {
+            item {
+                DuolingoCard {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp)
+                    ) {
+                        Text(
+                            text = "💤 ¡Hoy es tu día de descanso recuperativo!",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = "No tienes ninguna rutina programada para el día de hoy ($todayCode). Sin embargo, puedes iniciar un entrenamiento libre en cualquier momento.",
+                            fontSize = 13.sp,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        DuolingoButton(
+                            text = "Iniciar Entrenamiento Libre",
+                            onClick = { onStartWorkout(null) },
+                            icon = { Icon(Icons.Default.PlayArrow, contentDescription = null, tint = androidx.compose.ui.graphics.Color.White) }
+                        )
+                    }
+                }
+            }
+        } else {
+            items(routinesForToday) { rItem ->
+                val r = rItem.routine
+                DuolingoCard {
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Icon(Icons.Default.FitnessCenter, contentDescription = null, tint = DuolingoGreen)
+                            Column {
+                                Text(text = r.name, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                                Text(text = "${rItem.items.size} ejercicios programados", fontSize = 13.sp, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
+                            }
+                        }
+
+                        DuolingoButton(
+                            text = "Iniciar Routine",
+                            onClick = { onStartWorkout(r.id) },
+                            containerColor = DuolingoGreen,
+                            shadowColor = DuolingoGreenDark,
+                            icon = { Icon(Icons.Default.PlayArrow, contentDescription = null, tint = androidx.compose.ui.graphics.Color.White) }
                         )
                     }
                 }

@@ -92,6 +92,7 @@ class ProgressViewModel(application: Application) : AndroidViewModel(application
                 timestamp = System.currentTimeMillis()
             )
             repository.addMeasurement(measurement)
+            com.titoodev.h_gym.data.sync.CloudSyncManager.syncLocalDataToCloud(getApplication())
         }
     }
 }

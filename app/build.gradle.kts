@@ -54,6 +54,7 @@ dependencies {
     ksp(libs.androidx.room.compiler)
     implementation(libs.androidx.work.runtime.ktx)
     implementation(libs.kotlinx.coroutines.android)
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.8.0")
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.coil.compose)
     implementation(platform(libs.firebase.bom))
