@@ -71,25 +71,13 @@ fun NutritionScreen(
 
     val mealCategories = listOf("Desayuno", "Almuerzo", "Cena", "Merienda", "Snack")
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Alimentación y Calorías", fontWeight = FontWeight.Bold) },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background,
-                    titleContentColor = MaterialTheme.colorScheme.onBackground
-                )
-            )
-        }
-    ) { innerPadding ->
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(MaterialTheme.colorScheme.background)
-                .padding(innerPadding)
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
             // Privacy Shield Notice Card
             item {
                 Card(
@@ -341,5 +329,4 @@ fun NutritionScreen(
                 }
             }
         }
-    }
 }

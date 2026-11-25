@@ -144,25 +144,13 @@ fun WorkoutScreen(
         }
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(if (isWorkoutActive) "Entrenando: $activeWorkoutTitle" else "Entrenamientos", fontWeight = FontWeight.Bold) },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background,
-                    titleContentColor = MaterialTheme.colorScheme.onBackground
-                )
-            )
-        }
-    ) { innerPadding ->
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(MaterialTheme.colorScheme.background)
-                .padding(innerPadding)
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
             // Active Session Card (Duolingo Style)
             item {
                 DuolingoCard {
@@ -567,7 +555,6 @@ fun WorkoutScreen(
                 }
             }
         }
-    }
 
     // Celebration Summary Dialog (Duolingo Style)
     if (showCelebrationSummary) {

@@ -155,25 +155,13 @@ fun ComplianceHeatmapScreen(
         if (totalScheduled > 0) (totalCompleted.toFloat() / totalScheduled.toFloat() * 100).toInt() else 100
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Mapa de Constancia (GitHub Style)", fontWeight = FontWeight.Bold) },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background,
-                    titleContentColor = MaterialTheme.colorScheme.onBackground
-                )
-            )
-        }
-    ) { innerPadding ->
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(MaterialTheme.colorScheme.background)
-                .padding(innerPadding)
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
             // Streaks Cards Row (Duolingo Style)
             item {
                 Row(
@@ -304,7 +292,6 @@ fun ComplianceHeatmapScreen(
                 }
             }
         }
-    }
 
     // Day Details Dialog
     if (showDayDetailDialog && selectedDayInfo != null) {

@@ -30,25 +30,13 @@ fun QuotaAdminScreen() {
     val readsProgress = (metrics.estimatedReadsToday.toFloat() / QuotaManager.PREVENTIVE_READS_THRESHOLD).coerceIn(0f, 1f)
     val deletesProgress = (metrics.estimatedDeletesToday.toFloat() / QuotaManager.PREVENTIVE_DELETES_THRESHOLD).coerceIn(0f, 1f)
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Panel de Cuotas Firebase (Spark)", fontWeight = FontWeight.Bold) },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background,
-                    titleContentColor = MaterialTheme.colorScheme.onBackground
-                )
-            )
-        }
-    ) { innerPadding ->
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(MaterialTheme.colorScheme.background)
-                .padding(innerPadding)
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
             item {
                 Card(
                     shape = RoundedCornerShape(20.dp),
@@ -115,5 +103,4 @@ fun QuotaAdminScreen() {
                 }
             }
         }
-    }
 }

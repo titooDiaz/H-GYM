@@ -87,42 +87,15 @@ fun ExerciseCatalogScreen(
 
     val muscleGroups = listOf("Pecho", "Espalda", "Piernas", "Hombros", "Brazos", "Core", "General")
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Biblioteca de Ejercicios", fontWeight = FontWeight.Bold) },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background,
-                    titleContentColor = MaterialTheme.colorScheme.onBackground
-                )
-            )
-        },
-        floatingActionButton = {
-            FloatingActionButton(
-                onClick = {
-                    haptics.performSuccess()
-                    editingExerciseId = 0L
-                    exerciseNameInput = ""
-                    exerciseDescInput = ""
-                    selectedMuscleGroup = "Pecho"
-                    selectedEquipment = "Barra"
-                    selectedPhotoUri = null
-                    isNameError = false
-                    showEditDialog = true
-                },
-                containerColor = DuolingoGreen,
-                contentColor = MaterialTheme.colorScheme.onPrimary
-            ) {
-                Icon(Icons.Default.Add, contentDescription = "Nuevo Ejercicio")
-            }
-        }
-    ) { innerPadding ->
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+    ) {
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .background(MaterialTheme.colorScheme.background)
-                .padding(innerPadding)
-                .padding(16.dp),
+                .padding(horizontal = 16.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             item {
@@ -235,6 +208,31 @@ fun ExerciseCatalogScreen(
                         }
                     }
                 }
+            }
+        }
+
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp),
+            contentAlignment = Alignment.BottomEnd
+        ) {
+            FloatingActionButton(
+                onClick = {
+                    haptics.performSuccess()
+                    editingExerciseId = 0L
+                    exerciseNameInput = ""
+                    exerciseDescInput = ""
+                    selectedMuscleGroup = "Pecho"
+                    selectedEquipment = "Barra"
+                    selectedPhotoUri = null
+                    isNameError = false
+                    showEditDialog = true
+                },
+                containerColor = DuolingoGreen,
+                contentColor = MaterialTheme.colorScheme.onPrimary
+            ) {
+                Icon(Icons.Default.Add, contentDescription = "Nuevo Ejercicio")
             }
         }
     }

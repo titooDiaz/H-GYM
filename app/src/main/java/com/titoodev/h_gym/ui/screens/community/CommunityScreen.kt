@@ -39,25 +39,13 @@ fun CommunityScreen() {
 
     val totalWorkoutsCount = workoutsState.size
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Comunidad y Grupos", fontWeight = FontWeight.Bold) },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background,
-                    titleContentColor = MaterialTheme.colorScheme.onBackground
-                )
-            )
-        }
-    ) { innerPadding ->
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(MaterialTheme.colorScheme.background)
-                .padding(innerPadding)
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
             // Group Join Card
             item {
                 Card(
@@ -221,5 +209,4 @@ fun CommunityScreen() {
                 }
             }
         }
-    }
 }

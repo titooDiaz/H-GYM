@@ -149,67 +149,38 @@ fun ProgressScreen(
 
     val primaryColor = MaterialTheme.colorScheme.primary
 
-    Scaffold(
-        topBar = {
-            Column {
-                TopAppBar(
-                    title = { Text("Evolución Física y Constancia", fontWeight = FontWeight.Bold) },
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.background,
-                        titleContentColor = MaterialTheme.colorScheme.onBackground
-                    )
-                )
-
-                TabRow(selectedTabIndex = selectedTab) {
-                    Tab(
-                        selected = selectedTab == 0,
-                        onClick = {
-                            haptics.performClick()
-                            selectedTab = 0
-                        },
-                        text = { Text("Mapa de Constancia", fontWeight = FontWeight.Bold) }
-                    )
-                    Tab(
-                        selected = selectedTab == 1,
-                        onClick = {
-                            haptics.performClick()
-                            selectedTab = 1
-                        },
-                        text = { Text("Evolución y Medidas", fontWeight = FontWeight.Bold) }
-                    )
-                }
-            }
-        },
-        floatingActionButton = {
-            if (selectedTab == 1) {
-                FloatingActionButton(
-                    onClick = {
-                        haptics.performSuccess()
-                        weightInput = latestMeasurement?.weight?.toString() ?: "70.0"
-                        chestInput = latestMeasurement?.chest?.toString() ?: ""
-                        waistInput = latestMeasurement?.waist?.toString() ?: ""
-                        armInput = latestMeasurement?.arm?.toString() ?: ""
-                        thighInput = latestMeasurement?.thigh?.toString() ?: ""
-                        fatInput = latestMeasurement?.bodyFatPercentage?.toString() ?: ""
-                        showAddMeasurementDialog = true
-                    },
-                    containerColor = com.titoodev.h_gym.ui.components.DuolingoGreen,
-                    contentColor = MaterialTheme.colorScheme.onPrimary
-                ) {
-                    Icon(Icons.Default.Add, contentDescription = "Registrar Medidas")
-                }
-            }
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+    ) {
+        SecondaryTabRow(selectedTabIndex = selectedTab) {
+            Tab(
+                selected = selectedTab == 0,
+                onClick = {
+                    haptics.performClick()
+                    selectedTab = 0
+                },
+                text = { Text("Mapa de Constancia", fontWeight = FontWeight.Bold) }
+            )
+            Tab(
+                selected = selectedTab == 1,
+                onClick = {
+                    haptics.performClick()
+                    selectedTab = 1
+                },
+                text = { Text("Evolución y Medidas", fontWeight = FontWeight.Bold) }
+            )
         }
-    ) { innerPadding ->
-        Box(modifier = Modifier.padding(innerPadding)) {
+
+        Box(modifier = Modifier.weight(1f)) {
             if (selectedTab == 0) {
                 ComplianceHeatmapScreen(viewModel = viewModel)
             } else {
                 LazyColumn(
                     modifier = Modifier
                         .fillMaxSize()
-                        .background(MaterialTheme.colorScheme.background)
-                        .padding(16.dp),
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
             // 1. Real Body Weight Line Chart Card
@@ -503,8 +474,32 @@ fun ProgressScreen(
                 }
             }
         }
-    }
-}
+
+        if (selectedTab == 1) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(16.dp),
+                contentAlignment = Alignment.BottomEnd
+            ) {
+                FloatingActionButton(
+                    onClick = {
+                        haptics.performSuccess()
+                        weightInput = latestMeasurement?.weight?.toString() ?: "70.0"
+                        chestInput = latestMeasurement?.chest?.toString() ?: ""
+                        waistInput = latestMeasurement?.waist?.toString() ?: ""
+                        armInput = latestMeasurement?.arm?.toString() ?: ""
+                        thighInput = latestMeasurement?.thigh?.toString() ?: ""
+                        fatInput = latestMeasurement?.bodyFatPercentage?.toString() ?: ""
+                        showAddMeasurementDialog = true
+                    },
+                    containerColor = com.titoodev.h_gym.ui.components.DuolingoGreen,
+                    contentColor = MaterialTheme.colorScheme.onPrimary
+                ) {
+                    Icon(Icons.Default.Add, contentDescription = "Registrar Medidas")
+                }
+            }
+        }
 
     // Add Measurement Dialog
     if (showAddMeasurementDialog) {
@@ -587,5 +582,7 @@ fun ProgressScreen(
             }
         )
     }
+}
+}
 }
 }

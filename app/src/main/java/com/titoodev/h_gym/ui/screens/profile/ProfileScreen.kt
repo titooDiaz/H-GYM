@@ -30,25 +30,13 @@ fun ProfileScreen(onSignOut: () -> Unit) {
     var newWeight by remember { mutableStateOf("75.0") }
     var showWeightDialog by remember { mutableStateOf(false) }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Mi Perfil", fontWeight = FontWeight.Bold) },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background,
-                    titleContentColor = MaterialTheme.colorScheme.onBackground
-                )
-            )
-        }
-    ) { innerPadding ->
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(MaterialTheme.colorScheme.background)
-                .padding(innerPadding)
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
             item {
                 Card(
                     shape = RoundedCornerShape(24.dp),
@@ -127,7 +115,6 @@ fun ProfileScreen(onSignOut: () -> Unit) {
                 }
             }
         }
-    }
 
     if (showWeightDialog) {
         AlertDialog(

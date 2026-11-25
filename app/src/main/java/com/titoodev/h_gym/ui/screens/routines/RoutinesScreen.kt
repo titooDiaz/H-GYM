@@ -53,39 +53,15 @@ fun RoutinesScreen(
     var showDeleteConfirmDialog by remember { mutableStateOf(false) }
     var routineToDelete by remember { mutableStateOf<RoutineWithItems?>(null) }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Mis Rutinas Semanales", fontWeight = FontWeight.Bold) },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background,
-                    titleContentColor = MaterialTheme.colorScheme.onBackground
-                )
-            )
-        },
-        floatingActionButton = {
-            FloatingActionButton(
-                onClick = {
-                    haptics.performSuccess()
-                    editingRoutineId = 0L
-                    routineNameInput = ""
-                    selectedDays = setOf("L", "M", "X", "J", "V")
-                    selectedExerciseIds = allExercises.take(3).map { it.id }
-                    showRoutineDialog = true
-                },
-                containerColor = DuolingoGreen,
-                contentColor = MaterialTheme.colorScheme.onPrimary
-            ) {
-                Icon(Icons.Default.Add, contentDescription = "Crear Rutina")
-            }
-        }
-    ) { innerPadding ->
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+    ) {
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .background(MaterialTheme.colorScheme.background)
-                .padding(innerPadding)
-                .padding(16.dp),
+                .padding(horizontal = 16.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             item {
@@ -232,6 +208,28 @@ fun RoutinesScreen(
                         }
                     }
                 }
+            }
+        }
+
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp),
+            contentAlignment = Alignment.BottomEnd
+        ) {
+            FloatingActionButton(
+                onClick = {
+                    haptics.performSuccess()
+                    editingRoutineId = 0L
+                    routineNameInput = ""
+                    selectedDays = setOf("L", "M", "X", "J", "V")
+                    selectedExerciseIds = allExercises.take(3).map { it.id }
+                    showRoutineDialog = true
+                },
+                containerColor = DuolingoGreen,
+                contentColor = MaterialTheme.colorScheme.onPrimary
+            ) {
+                Icon(Icons.Default.Add, contentDescription = "Crear Rutina")
             }
         }
     }
