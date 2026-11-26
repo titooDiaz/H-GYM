@@ -1,6 +1,9 @@
 package com.titoodev.h_gym.ui.screens.workout
 
+import androidx.compose.animation.*
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -8,29 +11,24 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ArrowDownward
-import androidx.compose.material.icons.filled.ArrowUpward
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.EmojiEvents
-import androidx.compose.material.icons.filled.FitnessCenter
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Stop
-import androidx.compose.material.icons.filled.Timer
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import coil.compose.rememberAsyncImagePainter
 import com.titoodev.h_gym.data.local.entities.WorkoutSetEntity
 import com.titoodev.h_gym.ui.components.*
+import com.titoodev.h_gym.util.DateUtils
 import kotlinx.coroutines.delay
+import java.io.File
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -40,12 +38,15 @@ data class ActiveSetItem(
     val reps: Int,
     val unit: String = "kg",
     val durationSeconds: Long = 0L,
-    val notes: String? = null
+    val notes: String? = null,
+    val isGhost: Boolean = false // Pre-filled set from last workout (dimmed until confirmed)
 )
 
 data class ActiveExerciseItem(
     val exerciseId: Long,
     val exerciseName: String,
+    val muscleGroup: String = "General",
+    val localPhotoPath: String? = null,
     val sets: List<ActiveSetItem> = emptyList()
 )
 
@@ -68,10 +69,10 @@ fun WorkoutScreen(
     var sessionStartTime by remember { mutableLongStateOf(0L) }
     var elapsedSeconds by remember { mutableLongStateOf(0L) }
 
-    // Selected Unit Setting (kg or lb)
+    // Unit Preference (kg / lb)
     var selectedUnit by remember { mutableStateOf("kg") }
 
-    // Active Exercises Builder
+    // Active Exercises
     var currentExercises by remember { mutableStateOf(listOf<ActiveExerciseItem>()) }
 
     // Rest & Set Timers State
@@ -82,18 +83,61 @@ fun WorkoutScreen(
     var isSetTimerRunning by remember { mutableStateOf(false) }
     var setTimerSeconds by remember { mutableLongStateOf(0L) }
 
-    // Celebration Summary Dialog State
+    // Celebration & Records State
     var showCelebrationSummary by remember { mutableStateOf(false) }
     var completedTotalVolume by remember { mutableIntStateOf(0) }
     var completedTotalSets by remember { mutableIntStateOf(0) }
     var completedDuration by remember { mutableLongStateOf(0L) }
+    var newRecordsBrokenCount by remember { mutableIntStateOf(0) }
 
-    // Select Exercise Dialog
+    // Select Exercise Modal State
     var showSelectExerciseDialog by remember { mutableStateOf(false) }
     var exerciseSearchQuery by remember { mutableStateOf("") }
+    var selectedFilterMuscleGroup by remember { mutableStateOf("Todos") }
+
+    // Today's scheduled routine
+    val todayCode = remember { DateUtils.getCurrentDayOfWeekCode() }
+    val todayRoutineItem = remember(routinesState, todayCode) {
+        routinesState.find { r ->
+            r.routine.daysOfWeek.split(",").map { it.trim() }.contains(todayCode)
+        }
+    }
+
+    // Function to load exercises with ghost sets from history
+    fun loadExerciseWithHistory(exId: Long, exName: String, muscle: String, photo: String?, routineId: Long?): ActiveExerciseItem {
+        val exerciseMap = allExercisesState.associateBy { it.id }
+        val ex = exerciseMap[exId]
+
+        // Find previous workout sets for this routine or general exercise history
+        val prevRoutineWorkout = workoutsWithSetsState
+            .filter { (routineId != null && it.workout.notes?.contains("Routine:$routineId") == true) || it.sets.any { s -> s.exerciseId == exId } }
+            .maxByOrNull { it.workout.date }
+
+        val prevSets = prevRoutineWorkout?.sets?.filter { it.exerciseId == exId } ?: emptyList()
+
+        val ghostSets = prevSets.mapIndexed { idx, s ->
+            ActiveSetItem(
+                setNumber = idx + 1,
+                weight = s.weight,
+                reps = s.reps,
+                unit = s.unit,
+                durationSeconds = s.durationSeconds,
+                notes = s.notes,
+                isGhost = true
+            )
+        }
+
+        return ActiveExerciseItem(
+            exerciseId = exId,
+            exerciseName = exName,
+            muscleGroup = ex?.muscleGroup ?: muscle,
+            localPhotoPath = ex?.localPhotoPath ?: photo,
+            sets = ghostSets
+        )
+    }
 
     // Auto-start from Routine if passed
-    LaunchedEffect(routineIdToStart) {
+    LaunchedEffect(routineIdToStart, routinesState, allExercisesState) {
         if (routineIdToStart != null && !isWorkoutActive) {
             val rItem = routinesState.find { it.routine.id == routineIdToStart }
             if (rItem != null) {
@@ -106,7 +150,9 @@ fun WorkoutScreen(
                 val exerciseMap = allExercisesState.associateBy { it.id }
                 currentExercises = rItem.items.sortedBy { it.orderIndex }.mapNotNull { item ->
                     val ex = exerciseMap[item.exerciseId]
-                    if (ex != null) ActiveExerciseItem(ex.id, ex.name, emptyList()) else null
+                    if (ex != null) {
+                        loadExerciseWithHistory(ex.id, ex.name, ex.muscleGroup, ex.localPhotoPath, rItem.routine.id)
+                    } else null
                 }
             }
         }
@@ -151,428 +197,614 @@ fun WorkoutScreen(
             .padding(horizontal = 16.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-            // Active Session Card (Duolingo Style)
+        // Sticky Session Control Top Card
+        if (isWorkoutActive) {
             item {
-                DuolingoCard {
-                    Column(modifier = Modifier.fillMaxWidth()) {
+                Card(
+                    shape = RoundedCornerShape(20.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(
-                                text = if (isWorkoutActive) "⚡ Sesión Activa" else "Iniciar Nuevo Entrenamiento",
-                                fontSize = 18.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-
-                            if (isWorkoutActive) {
-                                val minutes = elapsedSeconds / 60
-                                val seconds = elapsedSeconds % 60
+                            Column {
                                 Text(
-                                    text = String.format(Locale.getDefault(), "%02d:%02d", minutes, seconds),
+                                    text = "⚡ $activeWorkoutTitle",
                                     fontSize = 18.sp,
-                                    fontWeight = FontWeight.Black,
-                                    color = DuolingoGreen
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface
                                 )
+                                val mins = elapsedSeconds / 60
+                                val secs = elapsedSeconds % 60
+                                Text(
+                                    text = String.format(Locale.getDefault(), "%02d:%02d minutos", mins, secs),
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Black,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+
+                            // Unit Switcher Chips
+                            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                listOf("kg", "lb").forEach { u ->
+                                    FilterChip(
+                                        selected = selectedUnit == u,
+                                        onClick = {
+                                            haptics.performClick()
+                                            selectedUnit = u
+                                        },
+                                        label = { Text(u.uppercase(), fontSize = 11.sp, fontWeight = FontWeight.Bold) }
+                                    )
+                                }
                             }
                         }
 
-                        Spacer(modifier = Modifier.height(8.dp))
+                        Spacer(modifier = Modifier.height(10.dp))
 
-                        if (isWorkoutActive) {
-                            // Live Progress Bar (Exercise X of Y)
-                            val totalExCount = currentExercises.size.coerceAtLeast(1)
-                            val completedExCount = currentExercises.count { it.sets.isNotEmpty() }
-                            val progressFactor = completedExCount.toFloat() / totalExCount.toFloat()
+                        // Live Progress Bar
+                        val totalExCount = currentExercises.size.coerceAtLeast(1)
+                        val completedExCount = currentExercises.count { it.sets.any { s -> !s.isGhost } }
+                        val progressFactor = completedExCount.toFloat() / totalExCount.toFloat()
 
-                            Text(
-                                text = "Progreso del entrenamiento: Ejercicio $completedExCount de $totalExCount",
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                            Spacer(modifier = Modifier.height(6.dp))
-                            DuolingoProgressBar(progress = progressFactor)
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text("Progreso: Ejercicio $completedExCount de $totalExCount", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
+                            Text("${(progressFactor * 100).toInt()}%", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                        }
+                        Spacer(modifier = Modifier.height(4.dp))
+                        DuolingoProgressBar(progress = progressFactor)
 
-                            Spacer(modifier = Modifier.height(14.dp))
-
-                            // Unit Selector (kg / lb)
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
+                        // Floating Rest Timer Bar (if active)
+                        if (isRestTimerRunning) {
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Surface(
+                                shape = RoundedCornerShape(14.dp),
+                                color = DuolingoGreen.copy(alpha = 0.15f),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, DuolingoGreen),
+                                modifier = Modifier.fillMaxWidth()
                             ) {
-                                Text("Unidad de Peso:", fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                    listOf("kg", "lb").forEach { u ->
-                                        FilterChip(
-                                            selected = selectedUnit == u,
-                                            onClick = {
-                                                haptics.performClick()
-                                                selectedUnit = u
-                                            },
-                                            label = { Text(u.uppercase(), fontSize = 11.sp, fontWeight = FontWeight.Bold) }
-                                        )
-                                    }
-                                }
-                            }
-
-                            Spacer(modifier = Modifier.height(14.dp))
-
-                            // Exercises Builder List
-                            currentExercises.forEachIndexed { exIndex, exItem ->
-                                Surface(
-                                    shape = RoundedCornerShape(18.dp),
-                                    color = MaterialTheme.colorScheme.surfaceVariant,
+                                Row(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .padding(vertical = 4.dp)
+                                        .padding(horizontal = 14.dp, vertical = 10.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Column(modifier = Modifier.padding(14.dp)) {
-                                        // Header with Up / Down Reorder Arrows
-                                        Row(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            horizontalArrangement = Arrangement.SpaceBetween,
-                                            verticalAlignment = Alignment.CenterVertically
+                                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        Icon(Icons.Default.Timer, contentDescription = null, tint = DuolingoGreen)
+                                        Text(
+                                            text = "Descanso: ${restSecondsRemaining}s",
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 15.sp,
+                                            color = DuolingoGreen
+                                        )
+                                    }
+
+                                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                        OutlinedButton(
+                                            onClick = {
+                                                haptics.performClick()
+                                                restSecondsRemaining += 30
+                                            },
+                                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                                            shape = RoundedCornerShape(8.dp)
                                         ) {
-                                            Row(
-                                                verticalAlignment = Alignment.CenterVertically,
-                                                horizontalArrangement = Arrangement.spacedBy(6.dp)
-                                            ) {
-                                                Text(
-                                                    text = "${exIndex + 1}. ${exItem.exerciseName}",
-                                                    fontWeight = FontWeight.Bold,
-                                                    fontSize = 16.sp,
-                                                    color = MaterialTheme.colorScheme.primary
-                                                )
-                                            }
-
-                                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                                if (exIndex > 0) {
-                                                    IconButton(onClick = {
-                                                        haptics.performClick()
-                                                        val list = currentExercises.toMutableList()
-                                                        val tmp = list[exIndex]
-                                                        list[exIndex] = list[exIndex - 1]
-                                                        list[exIndex - 1] = tmp
-                                                        currentExercises = list
-                                                    }) {
-                                                        Icon(Icons.Default.ArrowUpward, contentDescription = "Subir", modifier = Modifier.size(18.dp))
-                                                    }
-                                                }
-
-                                                if (exIndex < currentExercises.size - 1) {
-                                                    IconButton(onClick = {
-                                                        haptics.performClick()
-                                                        val list = currentExercises.toMutableList()
-                                                        val tmp = list[exIndex]
-                                                        list[exIndex] = list[exIndex + 1]
-                                                        list[exIndex + 1] = tmp
-                                                        currentExercises = list
-                                                    }) {
-                                                        Icon(Icons.Default.ArrowDownward, contentDescription = "Bajar", modifier = Modifier.size(18.dp))
-                                                    }
-                                                }
-
-                                                IconButton(onClick = {
-                                                    haptics.performClick()
-                                                    currentExercises = currentExercises.filter { it.exerciseId != exItem.exerciseId }
-                                                }) {
-                                                    Icon(Icons.Default.Delete, contentDescription = "Eliminar", tint = DuolingoRed, modifier = Modifier.size(18.dp))
-                                                }
-                                            }
+                                            Text("+30s", fontSize = 11.sp)
                                         }
 
-                                        // Target Reference (Last recorded set to beat!)
-                                        val prevSets = workoutsWithSetsState.flatMap { it.sets }.filter { it.exerciseId == exItem.exerciseId }
-                                        val bestPrev = prevSets.maxByOrNull { it.weight }
-                                        if (bestPrev != null) {
-                                            Text(
-                                                text = "🎯 Marca a superar: ${bestPrev.weight} ${bestPrev.unit} × ${bestPrev.reps} reps",
-                                                fontSize = 12.sp,
-                                                fontWeight = FontWeight.SemiBold,
-                                                color = DuolingoGreen
-                                            )
-                                            Spacer(modifier = Modifier.height(4.dp))
-                                        }
-
-                                        // Registered Sets List
-                                        if (exItem.sets.isEmpty()) {
-                                            Text("Sin series registradas aún.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
-                                        } else {
-                                            exItem.sets.forEachIndexed { sIdx, setItem ->
-                                                Row(
-                                                    modifier = Modifier.fillMaxWidth(),
-                                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                                    verticalAlignment = Alignment.CenterVertically
-                                                ) {
-                                                    Text(
-                                                        text = "• Serie ${sIdx + 1}: ${setItem.weight} ${setItem.unit} × ${setItem.reps} reps (${setItem.durationSeconds}s)${if (!setItem.notes.isNullOrBlank()) " [${setItem.notes}]" else ""}",
-                                                        fontSize = 13.sp,
-                                                        color = MaterialTheme.colorScheme.onSurface
-                                                    )
-                                                    IconButton(onClick = {
-                                                        haptics.performClick()
-                                                        val updatedSets = exItem.sets.filterIndexed { i, _ -> i != sIdx }
-                                                        currentExercises = currentExercises.map {
-                                                            if (it.exerciseId == exItem.exerciseId) it.copy(sets = updatedSets) else it
-                                                        }
-                                                    }) {
-                                                        Icon(Icons.Default.Delete, contentDescription = "Borrar serie", tint = DuolingoRed, modifier = Modifier.size(16.dp))
-                                                    }
-                                                }
-                                            }
-                                        }
-
-                                        Spacer(modifier = Modifier.height(8.dp))
-
-                                        // Set Builder Row
-                                        var setWeight by remember { mutableStateOf("60") }
-                                        var setReps by remember { mutableStateOf("10") }
-                                        var setNotes by remember { mutableStateOf("") }
-
-                                        Row(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                            verticalAlignment = Alignment.CenterVertically
+                                        Button(
+                                            onClick = {
+                                                haptics.performSuccess()
+                                                isRestTimerRunning = false
+                                                restSecondsRemaining = 0
+                                            },
+                                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                                            shape = RoundedCornerShape(8.dp),
+                                            colors = ButtonDefaults.buttonColors(containerColor = DuolingoGreen)
                                         ) {
-                                            OutlinedTextField(
-                                                value = setWeight,
-                                                onValueChange = { setWeight = it },
-                                                label = { Text(selectedUnit) },
-                                                modifier = Modifier.weight(1f),
-                                                shape = RoundedCornerShape(10.dp)
-                                            )
-                                            OutlinedTextField(
-                                                value = setReps,
-                                                onValueChange = { setReps = it },
-                                                label = { Text("Reps") },
-                                                modifier = Modifier.weight(1f),
-                                                shape = RoundedCornerShape(10.dp)
-                                            )
-                                            OutlinedTextField(
-                                                value = setNotes,
-                                                onValueChange = { setNotes = it },
-                                                label = { Text("Nota") },
-                                                modifier = Modifier.weight(1.2f),
-                                                shape = RoundedCornerShape(10.dp)
-                                            )
-                                        }
-
-                                        Spacer(modifier = Modifier.height(8.dp))
-
-                                        // Interactive Set Timer & Add Set Button
-                                        Row(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            horizontalArrangement = Arrangement.SpaceBetween,
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            OutlinedButton(
-                                                onClick = {
-                                                    haptics.performClick()
-                                                    if (!isSetTimerRunning) {
-                                                        isSetTimerRunning = true
-                                                        setTimerSeconds = 0L
-                                                    } else {
-                                                        isSetTimerRunning = false
-                                                    }
-                                                },
-                                                shape = RoundedCornerShape(10.dp)
-                                            ) {
-                                                Icon(if (isSetTimerRunning) Icons.Default.Stop else Icons.Default.Timer, contentDescription = null, modifier = Modifier.size(16.dp))
-                                                Spacer(modifier = Modifier.width(4.dp))
-                                                Text(if (isSetTimerRunning) "Detener (${setTimerSeconds}s)" else "Timer Serie")
-                                            }
-
-                                            Button(
-                                                onClick = {
-                                                    val w = setWeight.toFloatOrNull() ?: 0f
-                                                    val r = setReps.toIntOrNull() ?: 0
-                                                    if (w > 0 && r > 0) {
-                                                        haptics.performSuccess()
-                                                        val newSet = ActiveSetItem(
-                                                            setNumber = exItem.sets.size + 1,
-                                                            weight = w,
-                                                            reps = r,
-                                                            unit = selectedUnit,
-                                                            durationSeconds = setTimerSeconds,
-                                                            notes = setNotes.ifBlank { null }
-                                                        )
-                                                        currentExercises = currentExercises.map {
-                                                            if (it.exerciseId == exItem.exerciseId) {
-                                                                it.copy(sets = it.sets + newSet)
-                                                            } else it
-                                                        }
-                                                        isSetTimerRunning = false
-                                                        setTimerSeconds = 0L
-                                                        setNotes = ""
-                                                        restSecondsRemaining = restDurationSetting
-                                                        isRestTimerRunning = true
-                                                    }
-                                                },
-                                                shape = RoundedCornerShape(10.dp),
-                                                colors = ButtonDefaults.buttonColors(containerColor = DuolingoGreen)
-                                            ) {
-                                                Text("+ Guardar Serie", fontWeight = FontWeight.Bold)
-                                            }
+                                            Text("Saltar", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                                         }
                                     }
                                 }
                             }
+                        }
+                    }
+                }
+            }
 
-                            Spacer(modifier = Modifier.height(12.dp))
+            // Exercise Cards Board
+            items(currentExercises.indices.toList()) { exIndex ->
+                val exItem = currentExercises[exIndex]
 
-                            DuolingoButton(
-                                text = "Añadir Otro Ejercicio",
-                                onClick = { showSelectExerciseDialog = true },
-                                containerColor = DuolingoBlue,
-                                shadowColor = DuolingoBlueDark,
-                                icon = { Icon(Icons.Default.Add, contentDescription = null, tint = androidx.compose.ui.graphics.Color.White) }
-                            )
-
-                            Spacer(modifier = Modifier.height(16.dp))
-
-                            DuolingoButton(
-                                text = "Finalizar y Celebrar",
-                                onClick = {
-                                    val setsToSave = mutableListOf<WorkoutSetEntity>()
-                                    var setCounter = 1
-                                    currentExercises.forEach { exData ->
-                                        exData.sets.forEach { setItem ->
-                                            setsToSave.add(
-                                                WorkoutSetEntity(
-                                                    workoutId = 0L,
-                                                    exerciseId = exData.exerciseId,
-                                                    setNumber = setCounter++,
-                                                    weight = setItem.weight,
-                                                    reps = setItem.reps,
-                                                    durationSeconds = setItem.durationSeconds,
-                                                    unit = setItem.unit,
-                                                    notes = setItem.notes
-                                                )
-                                            )
-                                        }
-                                    }
-
-                                    val totalVol = currentExercises.sumOf { ex ->
-                                        ex.sets.sumOf { (w, r) -> (w * r).toDouble() }
-                                    }.toInt()
-
-                                    completedTotalVolume = totalVol
-                                    completedTotalSets = setsToSave.size
-                                    completedDuration = elapsedSeconds
-
-                                    viewModel.saveWorkoutSession(
-                                        title = activeWorkoutTitle,
-                                        startTime = sessionStartTime,
-                                        durationSeconds = elapsedSeconds,
-                                        notes = "Volumen: $totalVol $selectedUnit • ${setsToSave.size} series completadas",
-                                        sets = setsToSave
+                DuolingoCard {
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        // Header with Photo + Name + Reorder Arrows
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                if (exItem.localPhotoPath != null) {
+                                    Image(
+                                        painter = rememberAsyncImagePainter(File(exItem.localPhotoPath)),
+                                        contentDescription = exItem.exerciseName,
+                                        contentScale = ContentScale.Crop,
+                                        modifier = Modifier
+                                            .size(44.dp)
+                                            .clip(RoundedCornerShape(12.dp))
                                     )
-
-                                    // Save new order to Routine if routine active
-                                    if (activeRoutineId != null && currentExercises.isNotEmpty()) {
-                                        viewModel.saveFullRoutine(
-                                            id = activeRoutineId!!,
-                                            name = activeWorkoutTitle,
-                                            daysOfWeek = "L,M,X,J,V",
-                                            exerciseIds = currentExercises.map { it.exerciseId }
-                                        )
+                                } else {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(44.dp)
+                                            .clip(RoundedCornerShape(12.dp))
+                                            .background(MaterialTheme.colorScheme.primaryContainer),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(Icons.Default.FitnessCenter, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                                     }
+                                }
 
-                                    isWorkoutActive = false
-                                    isRestTimerRunning = false
-                                    isSetTimerRunning = false
-                                    showCelebrationSummary = true
-                                    currentExercises = emptyList()
-                                },
-                                containerColor = DuolingoGreen,
-                                shadowColor = DuolingoGreenDark,
-                                icon = { Icon(Icons.Default.Check, contentDescription = null, tint = androidx.compose.ui.graphics.Color.White) }
+                                Column {
+                                    Text(
+                                        text = "${exIndex + 1}. ${exItem.exerciseName}",
+                                        fontSize = 16.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Text(
+                                        text = exItem.muscleGroup,
+                                        fontSize = 12.sp,
+                                        color = MaterialTheme.colorScheme.primary,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                }
+                            }
+
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                if (exIndex > 0) {
+                                    IconButton(onClick = {
+                                        haptics.performClick()
+                                        val list = currentExercises.toMutableList()
+                                        val tmp = list[exIndex]
+                                        list[exIndex] = list[exIndex - 1]
+                                        list[exIndex - 1] = tmp
+                                        currentExercises = list
+                                    }) {
+                                        Icon(Icons.Default.ArrowUpward, contentDescription = "Subir", modifier = Modifier.size(18.dp))
+                                    }
+                                }
+
+                                if (exIndex < currentExercises.size - 1) {
+                                    IconButton(onClick = {
+                                        haptics.performClick()
+                                        val list = currentExercises.toMutableList()
+                                        val tmp = list[exIndex]
+                                        list[exIndex] = list[exIndex + 1]
+                                        list[exIndex + 1] = tmp
+                                        currentExercises = list
+                                    }) {
+                                        Icon(Icons.Default.ArrowDownward, contentDescription = "Bajar", modifier = Modifier.size(18.dp))
+                                    }
+                                }
+
+                                IconButton(onClick = {
+                                    haptics.performClick()
+                                    currentExercises = currentExercises.filter { it.exerciseId != exItem.exerciseId }
+                                }) {
+                                    Icon(Icons.Default.Delete, contentDescription = "Eliminar", tint = DuolingoRed, modifier = Modifier.size(18.dp))
+                                }
+                            }
+                        }
+
+                        // Personal Best Reference Target
+                        val allPastSets = workoutsWithSetsState.flatMap { it.sets }.filter { it.exerciseId == exItem.exerciseId }
+                        val bestPastSet = allPastSets.maxByOrNull { it.weight }
+                        if (bestPastSet != null) {
+                            Text(
+                                text = "🎯 Récord a superar: ${bestPastSet.weight} ${bestPastSet.unit} × ${bestPastSet.reps} reps",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = DuolingoGreen
                             )
                         } else {
-                            DuolingoButton(
-                                text = "Nuevo Entrenamiento Libre",
+                            Text(
+                                text = "✨ Aún sin registros. ¡Asegura tu primera marca hoy!",
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                            )
+                        }
+
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f))
+
+                        // Registered Sets Table
+                        if (exItem.sets.isEmpty()) {
+                            Text("Aún no has agregado series.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
+                        } else {
+                            exItem.sets.forEachIndexed { sIdx, setItem ->
+                                if (setItem.isGhost) {
+                                    // Ghost pre-filled set card (dimmed)
+                                    Surface(
+                                        shape = RoundedCornerShape(12.dp),
+                                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+                                        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)),
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(horizontal = 12.dp, vertical = 8.dp),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Text(
+                                                text = "• Serie ${sIdx + 1} (Anterior): ${setItem.weight} ${setItem.unit} × ${setItem.reps} reps",
+                                                fontSize = 13.sp,
+                                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                                            )
+                                            Button(
+                                                onClick = {
+                                                    haptics.performSuccess()
+                                                    val updatedSets = exItem.sets.mapIndexed { i, s ->
+                                                        if (i == sIdx) s.copy(isGhost = false) else s
+                                                    }
+                                                    currentExercises = currentExercises.map {
+                                                        if (it.exerciseId == exItem.exerciseId) it.copy(sets = updatedSets) else it
+                                                    }
+                                                    restSecondsRemaining = restDurationSetting
+                                                    isRestTimerRunning = true
+                                                },
+                                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp),
+                                                shape = RoundedCornerShape(8.dp),
+                                                colors = ButtonDefaults.buttonColors(containerColor = DuolingoGreen)
+                                            ) {
+                                                Text("Confirmar", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                            }
+                                        }
+                                    }
+                                } else {
+                                    // Active Confirmed Set Row
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        val isNewRecord = bestPastSet != null && setItem.weight > bestPastSet.weight
+                                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                            Icon(Icons.Default.CheckCircle, contentDescription = null, tint = DuolingoGreen, modifier = Modifier.size(16.dp))
+                                            Text(
+                                                text = "Serie ${sIdx + 1}: ${setItem.weight} ${setItem.unit} × ${setItem.reps} reps (${setItem.durationSeconds}s)${if (!setItem.notes.isNullOrBlank()) " [${setItem.notes}]" else ""}",
+                                                fontSize = 13.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = MaterialTheme.colorScheme.onSurface
+                                            )
+                                            if (isNewRecord) {
+                                                Surface(shape = RoundedCornerShape(6.dp), color = DuolingoYellow) {
+                                                    Text("🏆 RÉCORD", fontSize = 9.sp, fontWeight = FontWeight.Black, modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp))
+                                                }
+                                            }
+                                        }
+
+                                        IconButton(onClick = {
+                                            haptics.performClick()
+                                            val updatedSets = exItem.sets.filterIndexed { i, _ -> i != sIdx }
+                                            currentExercises = currentExercises.map {
+                                                if (it.exerciseId == exItem.exerciseId) it.copy(sets = updatedSets) else it
+                                            }
+                                        }) {
+                                            Icon(Icons.Default.Delete, contentDescription = "Borrar", tint = DuolingoRed, modifier = Modifier.size(16.dp))
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        // Add Set Form Row
+                        var setWeightInput by remember { mutableStateOf("60") }
+                        var setRepsInput by remember { mutableStateOf("10") }
+                        var setNotesInput by remember { mutableStateOf("") }
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            OutlinedTextField(
+                                value = setWeightInput,
+                                onValueChange = { setWeightInput = it },
+                                label = { Text(selectedUnit) },
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(10.dp)
+                            )
+                            OutlinedTextField(
+                                value = setRepsInput,
+                                onValueChange = { setRepsInput = it },
+                                label = { Text("Reps") },
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(10.dp)
+                            )
+                            OutlinedTextField(
+                                value = setNotesInput,
+                                onValueChange = { setNotesInput = it },
+                                label = { Text("Nota") },
+                                modifier = Modifier.weight(1.2f),
+                                shape = RoundedCornerShape(10.dp)
+                            )
+                        }
+
+                        // Set Actions (Timer & Add Button)
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            OutlinedButton(
                                 onClick = {
-                                    activeWorkoutTitle = "Entrenamiento Libre"
-                                    activeRoutineId = null
+                                    haptics.performClick()
+                                    if (!isSetTimerRunning) {
+                                        isSetTimerRunning = true
+                                        setTimerSeconds = 0L
+                                    } else {
+                                        isSetTimerRunning = false
+                                    }
+                                },
+                                shape = RoundedCornerShape(10.dp)
+                            ) {
+                                Icon(if (isSetTimerRunning) Icons.Default.Stop else Icons.Default.Timer, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(if (isSetTimerRunning) "Detener (${setTimerSeconds}s)" else "Timer Serie")
+                            }
+
+                            Button(
+                                onClick = {
+                                    val w = setWeightInput.toFloatOrNull() ?: 0f
+                                    val r = setRepsInput.toIntOrNull() ?: 0
+                                    if (w > 0 && r > 0) {
+                                        haptics.performSuccess()
+                                        val newSet = ActiveSetItem(
+                                            setNumber = exItem.sets.size + 1,
+                                            weight = w,
+                                            reps = r,
+                                            unit = selectedUnit,
+                                            durationSeconds = setTimerSeconds,
+                                            notes = setNotesInput.ifBlank { null },
+                                            isGhost = false
+                                        )
+                                        currentExercises = currentExercises.map {
+                                            if (it.exerciseId == exItem.exerciseId) {
+                                                it.copy(sets = it.sets + newSet)
+                                            } else it
+                                        }
+                                        isSetTimerRunning = false
+                                        setTimerSeconds = 0L
+                                        setNotesInput = ""
+                                        restSecondsRemaining = restDurationSetting
+                                        isRestTimerRunning = true
+                                    }
+                                },
+                                shape = RoundedCornerShape(10.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                            ) {
+                                Text("+ Guardar Serie", fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Session Bottom Control Actions
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    DuolingoButton(
+                        text = "Añadir Ejercicio",
+                        onClick = { showSelectExerciseDialog = true },
+                        containerColor = DuolingoBlue,
+                        shadowColor = DuolingoBlueDark,
+                        icon = { Icon(Icons.Default.Add, contentDescription = null, tint = Color.White) }
+                    )
+
+                    DuolingoButton(
+                        text = "✓ Finalizar y Celebrar",
+                        onClick = {
+                            val setsToSave = mutableListOf<WorkoutSetEntity>()
+                            var setCounter = 1
+                            var recordsCount = 0
+
+                            currentExercises.forEach { exData ->
+                                val pastBest = workoutsWithSetsState.flatMap { it.sets }.filter { it.exerciseId == exData.exerciseId }.maxByOrNull { it.weight }
+                                exData.sets.filter { !it.isGhost }.forEach { setItem ->
+                                    if (pastBest != null && setItem.weight > pastBest.weight) recordsCount++
+                                    setsToSave.add(
+                                        WorkoutSetEntity(
+                                            workoutId = 0L,
+                                            exerciseId = exData.exerciseId,
+                                            setNumber = setCounter++,
+                                            weight = setItem.weight,
+                                            reps = setItem.reps,
+                                            durationSeconds = setItem.durationSeconds,
+                                            unit = setItem.unit,
+                                            notes = setItem.notes
+                                        )
+                                    )
+                                }
+                            }
+
+                            val totalVol = currentExercises.sumOf { ex ->
+                                ex.sets.filter { !it.isGhost }.sumOf { (w, r) -> (w * r).toDouble() }
+                            }.toInt()
+
+                            completedTotalVolume = totalVol
+                            completedTotalSets = setsToSave.size
+                            completedDuration = elapsedSeconds
+                            newRecordsBrokenCount = recordsCount
+
+                            viewModel.saveWorkoutSession(
+                                title = activeWorkoutTitle,
+                                startTime = sessionStartTime,
+                                durationSeconds = elapsedSeconds,
+                                notes = "Volumen: $totalVol $selectedUnit • ${setsToSave.size} series • Routine:${activeRoutineId ?: 0}",
+                                sets = setsToSave
+                            )
+
+                            isWorkoutActive = false
+                            isRestTimerRunning = false
+                            isSetTimerRunning = false
+                            showCelebrationSummary = true
+                            currentExercises = emptyList()
+                        },
+                        containerColor = DuolingoGreen,
+                        shadowColor = DuolingoGreenDark
+                    )
+                }
+            }
+        } else {
+            // NO ACTIVE WORKOUT LANDING PANEL
+
+            // Hero Card: Scheduled Today's Routine
+            if (todayRoutineItem != null) {
+                item {
+                    val r = todayRoutineItem.routine
+                    DuolingoCard {
+                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Surface(shape = RoundedCornerShape(8.dp), color = DuolingoGreen) {
+                                    Text("PROGRAMADA HOY", fontSize = 11.sp, fontWeight = FontWeight.Black, color = Color.White, modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp))
+                                }
+                            }
+
+                            Text(text = r.name, fontSize = 20.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                            Text(text = "Día $todayCode • ${todayRoutineItem.items.size} ejercicios programados", fontSize = 13.sp, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
+
+                            DuolingoButton(
+                                text = "⚡ Iniciar Rutina de Hoy",
+                                onClick = {
+                                    haptics.performSuccess()
+                                    activeWorkoutTitle = r.name
+                                    activeRoutineId = r.id
                                     isWorkoutActive = true
                                     sessionStartTime = System.currentTimeMillis()
                                     elapsedSeconds = 0L
-                                    val firstEx = allExercisesState.firstOrNull()
-                                    currentExercises = if (firstEx != null) {
-                                        listOf(ActiveExerciseItem(firstEx.id, firstEx.name, emptyList()))
-                                    } else emptyList()
+
+                                    val exerciseMap = allExercisesState.associateBy { it.id }
+                                    currentExercises = todayRoutineItem.items.sortedBy { it.orderIndex }.mapNotNull { item ->
+                                        val ex = exerciseMap[item.exerciseId]
+                                        if (ex != null) loadExerciseWithHistory(ex.id, ex.name, ex.muscleGroup, ex.localPhotoPath, r.id) else null
+                                    }
                                 },
                                 containerColor = DuolingoGreen,
-                                shadowColor = DuolingoGreenDark,
-                                icon = { Icon(Icons.Default.PlayArrow, contentDescription = null, tint = androidx.compose.ui.graphics.Color.White) }
+                                shadowColor = DuolingoGreenDark
                             )
                         }
                     }
                 }
-            }
-
-            // Completed Workouts History Header
-            item {
-                Text(
-                    text = "Historial de Sesiones Completadas",
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onBackground
-                )
-            }
-
-            if (workoutsWithSetsState.isEmpty()) {
-                item {
-                    Text(
-                        text = "Aún no has completado sesiones de entrenamiento.",
-                        fontSize = 14.sp,
-                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
-                    )
-                }
             } else {
-                items(workoutsWithSetsState) { workoutWithSets ->
-                    val workout = workoutWithSets.workout
+                item {
                     DuolingoCard {
-                        Column {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Text(text = workout.title, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
-                                val sdf = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
-                                Text(text = sdf.format(Date(workout.date)), fontSize = 12.sp, color = DuolingoGreen, fontWeight = FontWeight.Bold)
-                            }
+                        Column(modifier = Modifier.padding(6.dp)) {
+                            Text("🛋️ Día de Descanso Programado", fontSize = 18.sp, fontWeight = FontWeight.Bold)
                             Spacer(modifier = Modifier.height(4.dp))
-                            val mins = workout.durationSeconds / 60
-                            val setNum = workoutWithSets.sets.size
-                            Text(text = "Duración: $mins min • $setNum series • ${workout.notes ?: ""}", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f))
+                            Text("No tienes rutinas agendadas para hoy. Puedes descansar o iniciar una sesión libre.", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f))
                         }
                     }
                 }
             }
-        }
 
-    // Celebration Summary Dialog (Duolingo Style)
+            // Quick Routine Launcher Carousel / List
+            item {
+                Text("Tus Rutinas Configuradas", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground)
+            }
+
+            if (routinesState.isEmpty()) {
+                item {
+                    Text("No tienes rutinas creadas. Puedes crear una en la pestaña 'Rutinas'.", fontSize = 13.sp, color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f))
+                }
+            } else {
+                items(routinesState) { rItem ->
+                    val r = rItem.routine
+                    DuolingoCard {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column {
+                                Text(text = r.name, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                                Text(text = "${rItem.items.size} ejercicios • Días: ${r.daysOfWeek}", fontSize = 12.sp, color = MaterialTheme.colorScheme.primary)
+                            }
+
+                            Button(
+                                onClick = {
+                                    haptics.performSuccess()
+                                    activeWorkoutTitle = r.name
+                                    activeRoutineId = r.id
+                                    isWorkoutActive = true
+                                    sessionStartTime = System.currentTimeMillis()
+                                    elapsedSeconds = 0L
+
+                                    val exerciseMap = allExercisesState.associateBy { it.id }
+                                    currentExercises = rItem.items.sortedBy { it.orderIndex }.mapNotNull { item ->
+                                        val ex = exerciseMap[item.exerciseId]
+                                        if (ex != null) loadExerciseWithHistory(ex.id, ex.name, ex.muscleGroup, ex.localPhotoPath, r.id) else null
+                                    }
+                                },
+                                shape = RoundedCornerShape(10.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                            ) {
+                                Text("Iniciar", fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Free Workout Button
+            item {
+                DuolingoButton(
+                    text = "💪 Nuevo Entrenamiento Libre",
+                    onClick = {
+                        haptics.performSuccess()
+                        activeWorkoutTitle = "Entrenamiento Libre"
+                        activeRoutineId = null
+                        isWorkoutActive = true
+                        sessionStartTime = System.currentTimeMillis()
+                        elapsedSeconds = 0L
+                        val firstEx = allExercisesState.firstOrNull()
+                        currentExercises = if (firstEx != null) {
+                            listOf(loadExerciseWithHistory(firstEx.id, firstEx.name, firstEx.muscleGroup, firstEx.localPhotoPath, null))
+                        } else emptyList()
+                    },
+                    containerColor = DuolingoBlue,
+                    shadowColor = DuolingoBlueDark
+                )
+            }
+        }
+    }
+
+    // Celebration Modal
     if (showCelebrationSummary) {
         AlertDialog(
             onDismissRequest = { showCelebrationSummary = false },
             title = {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Icon(Icons.Default.EmojiEvents, contentDescription = null, tint = DuolingoYellow, modifier = Modifier.size(32.dp))
-                    Text("¡Entrenamiento Completado!", fontWeight = FontWeight.Black, fontSize = 20.sp)
+                    Text("¡Entrenamiento Completado!", fontWeight = FontWeight.Black, fontSize = 18.sp)
                 }
             },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text("🎉 ¡Felicitaciones! Has mantenido tu racha de constancia activa.", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                    Spacer(modifier = Modifier.height(4.dp))
+                    Text("🎉 ¡Excelente trabajo! Has registrado tu sesión en Room y sincronizado con la nube.", fontSize = 13.sp)
                     Surface(
                         shape = RoundedCornerShape(16.dp),
                         color = MaterialTheme.colorScheme.surfaceVariant,
@@ -583,7 +815,10 @@ fun WorkoutScreen(
                             val secs = completedDuration % 60
                             Text("⏱️ Tiempo Total: ${mins}m ${secs}s", fontWeight = FontWeight.Bold, fontSize = 14.sp)
                             Text("🏋️ Series Completadas: $completedTotalSets series", fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                            Text("🔥 Volumen Total Movido: $completedTotalVolume $selectedUnit", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = DuolingoGreen)
+                            Text("🔥 Volumen Total: $completedTotalVolume $selectedUnit", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = DuolingoGreen)
+                            if (newRecordsBrokenCount > 0) {
+                                Text("🏆 Récords Personales Rotos: $newRecordsBrokenCount", fontWeight = FontWeight.Black, fontSize = 14.sp, color = DuolingoYellow)
+                            }
                         }
                     }
                 }
@@ -598,7 +833,7 @@ fun WorkoutScreen(
         )
     }
 
-    // Select Exercise Dialog
+    // Exercise Selection Modal
     if (showSelectExerciseDialog) {
         AlertDialog(
             onDismissRequest = { showSelectExerciseDialog = false },
@@ -606,19 +841,19 @@ fun WorkoutScreen(
             text = {
                 Column(
                     verticalArrangement = Arrangement.spacedBy(10.dp),
-                    modifier = Modifier.heightIn(max = 350.dp)
+                    modifier = Modifier.heightIn(max = 380.dp)
                 ) {
                     OutlinedTextField(
                         value = exerciseSearchQuery,
                         onValueChange = { exerciseSearchQuery = it },
-                        label = { Text("Buscar ejercicio") },
+                        label = { Text("Buscar ejercicio...") },
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp)
                     )
 
                     val filteredExercises = allExercisesState.filter {
-                        it.name.contains(exerciseSearchQuery, ignoreCase = true) ||
-                        it.muscleGroup.contains(exerciseSearchQuery, ignoreCase = true)
+                        (exerciseSearchQuery.isBlank() || it.name.contains(exerciseSearchQuery, ignoreCase = true) || it.muscleGroup.contains(exerciseSearchQuery, ignoreCase = true)) &&
+                        (selectedFilterMuscleGroup == "Todos" || it.muscleGroup.equals(selectedFilterMuscleGroup, ignoreCase = true))
                     }
 
                     LazyColumn(
@@ -635,7 +870,8 @@ fun WorkoutScreen(
                                     .clickable {
                                         haptics.performSuccess()
                                         if (currentExercises.none { it.exerciseId == exItem.id }) {
-                                            currentExercises = currentExercises + ActiveExerciseItem(exItem.id, exItem.name, emptyList())
+                                            val newEx = loadExerciseWithHistory(exItem.id, exItem.name, exItem.muscleGroup, exItem.localPhotoPath, activeRoutineId)
+                                            currentExercises = currentExercises + newEx
                                         }
                                         showSelectExerciseDialog = false
                                         exerciseSearchQuery = ""

@@ -53,6 +53,9 @@ fun RoutinesScreen(
     var showDeleteConfirmDialog by remember { mutableStateOf(false) }
     var routineToDelete by remember { mutableStateOf<RoutineWithItems?>(null) }
 
+    var showOverlapWarningDialog by remember { mutableStateOf(false) }
+    var overlappingRoutineName by remember { mutableStateOf("") }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -338,15 +341,29 @@ fun RoutinesScreen(
                 DuolingoButton(
                     text = "Guardar Rutina",
                     onClick = {
-                        if (routineNameInput.isNotBlank() && selectedDays.isNotEmpty()) {
-                            val daysStr = allDays.filter { selectedDays.contains(it) }.joinToString(",")
-                            viewModel.saveFullRoutine(
-                                id = editingRoutineId,
-                                name = routineNameInput,
-                                daysOfWeek = daysStr,
-                                exerciseIds = selectedExerciseIds
-                            )
-                            showRoutineDialog = false
+                        val daysStr = allDays.filter { selectedDays.contains(it) }.joinToString(",")
+                        val conflicting = routinesWithItems.find { rItem ->
+                            if (editingRoutineId != 0L && rItem.routine.id == editingRoutineId) false
+                            else {
+                                val assigned = rItem.routine.daysOfWeek.split(",").map { it.trim() }
+                                assigned.any { selectedDays.contains(it) }
+                            }
+                        }
+
+                        if (conflicting != null && !showOverlapWarningDialog) {
+                            overlappingRoutineName = conflicting.routine.name
+                            showOverlapWarningDialog = true
+                        } else {
+                            if (routineNameInput.isNotBlank() && selectedDays.isNotEmpty()) {
+                                viewModel.saveFullRoutine(
+                                    id = editingRoutineId,
+                                    name = routineNameInput,
+                                    daysOfWeek = daysStr,
+                                    exerciseIds = selectedExerciseIds
+                                )
+                                showRoutineDialog = false
+                                showOverlapWarningDialog = false
+                            }
                         }
                     },
                     modifier = Modifier.width(160.dp)
@@ -355,6 +372,41 @@ fun RoutinesScreen(
             dismissButton = {
                 TextButton(onClick = { showRoutineDialog = false }) {
                     Text("Cancelar")
+                }
+            }
+        )
+    }
+
+    // Overlap Warning Dialog
+    if (showOverlapWarningDialog) {
+        AlertDialog(
+            onDismissRequest = { showOverlapWarningDialog = false },
+            title = { Text("⚠️ Solapamiento de Rutinas", fontWeight = FontWeight.Bold) },
+            text = {
+                Text("Uno o más días seleccionados ya están asignados a la rutina '$overlappingRoutineName'. ¿Deseas guardar esta rutina de todos modos?")
+            },
+            confirmButton = {
+                DuolingoButton(
+                    text = "Guardar de todos modos",
+                    onClick = {
+                        val daysStr = allDays.filter { selectedDays.contains(it) }.joinToString(",")
+                        if (routineNameInput.isNotBlank() && selectedDays.isNotEmpty()) {
+                            viewModel.saveFullRoutine(
+                                id = editingRoutineId,
+                                name = routineNameInput,
+                                daysOfWeek = daysStr,
+                                exerciseIds = selectedExerciseIds
+                            )
+                            showRoutineDialog = false
+                            showOverlapWarningDialog = false
+                        }
+                    },
+                    modifier = Modifier.width(180.dp)
+                )
+            },
+            dismissButton = {
+                TextButton(onClick = { showOverlapWarningDialog = false }) {
+                    Text("Ajustar días")
                 }
             }
         )
