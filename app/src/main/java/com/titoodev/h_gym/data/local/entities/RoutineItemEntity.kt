@@ -32,5 +32,6 @@ data class RoutineItemEntity(
     val exerciseId: Long,
     val targetSets: Int = 4,
     val targetReps: Int = 10,
+    val targetRestSeconds: Int = 90,
     val orderIndex: Int = 0
 )

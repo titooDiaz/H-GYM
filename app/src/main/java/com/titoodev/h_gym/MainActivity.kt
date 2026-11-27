@@ -1,6 +1,8 @@
 package com.titoodev.h_gym
 
+import android.content.Context
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -23,6 +25,7 @@ import com.titoodev.h_gym.ui.screens.auth.RegistrationWizardScreen
 import com.titoodev.h_gym.ui.theme.HGYMTheme
 import com.titoodev.h_gym.ui.theme.ThemeVariant
 import kotlinx.coroutines.launch
+import java.util.UUID
 
 class MainActivity : ComponentActivity() {
     private lateinit var googleSignInClient: GoogleSignInClient
@@ -41,16 +44,46 @@ class MainActivity : ComponentActivity() {
             val idToken = account?.idToken
             if (idToken != null) {
                 val credential = GoogleAuthProvider.getCredential(idToken, null)
-                auth.signInWithCredential(credential)
-                    .addOnCompleteListener(this) { taskResult ->
-                        if (taskResult.isSuccessful) {
-                            isAuthenticatedState = true
+                val currentUser = auth.currentUser
+                if (currentUser != null && currentUser.isAnonymous) {
+                    // Link guest account to Google credentials to preserve local data
+                    currentUser.linkWithCredential(credential)
+                        .addOnCompleteListener(this) { linkTask ->
+                            if (linkTask.isSuccessful) {
+                                isAuthenticatedState = true
+                            } else {
+                                auth.signInWithCredential(credential)
+                                    .addOnCompleteListener(this) { signInTask ->
+                                        if (signInTask.isSuccessful) {
+                                            isAuthenticatedState = true
+                                        }
+                                    }
+                            }
                         }
-                    }
+                } else {
+                    auth.signInWithCredential(credential)
+                        .addOnCompleteListener(this) { taskResult ->
+                            if (taskResult.isSuccessful) {
+                                isAuthenticatedState = true
+                            } else {
+                                Toast.makeText(this, "Error de autenticación con Google", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                }
             }
-        } catch (_: ApiException) {
-            isAuthenticatedState = true
+        } catch (e: ApiException) {
+            Toast.makeText(this, "Error en inicio de sesión (${e.statusCode})", Toast.LENGTH_SHORT).show()
         }
+    }
+
+    private fun getOrCreateGuestUid(): String {
+        val prefs = getSharedPreferences("hgym_guest_prefs", Context.MODE_PRIVATE)
+        var guestUid = prefs.getString("guest_uid", null)
+        if (guestUid == null) {
+            guestUid = "guest_" + UUID.randomUUID().toString()
+            prefs.edit().putString("guest_uid", guestUid).apply()
+        }
+        return guestUid
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -100,24 +133,34 @@ class MainActivity : ComponentActivity() {
                                 googleSignInLauncher.launch(signInIntent)
                             },
                             onGuestLoginClicked = {
-                                isAuthenticatedState = true
+                                auth.signInAnonymously().addOnCompleteListener { task ->
+                                    if (task.isSuccessful) {
+                                        isAuthenticatedState = true
+                                    } else {
+                                        // Offline guest fallback
+                                        isAuthenticatedState = true
+                                    }
+                                }
                             }
                         )
                     }
                     !isProfileCompletedState -> {
                         val currentUser = auth.currentUser
+                        val effectiveUid = currentUser?.uid ?: getOrCreateGuestUid()
+                        val effectiveEmail = currentUser?.email ?: "guest@hgym.app"
+
                         RegistrationWizardScreen(
-                            initialName = currentUser?.displayName ?: "Atleta",
-                            initialEmail = currentUser?.email ?: "",
+                            initialName = currentUser?.displayName ?: "Atleta Invitado",
+                            initialEmail = effectiveEmail,
                             onRegistrationCompleted = { name, age, sex, height, weight, goals, expLevel, freq, trainType, chest, waist, hips, arm, thigh, bodyFat ->
                                 coroutineScope.launch {
                                     val now = System.currentTimeMillis()
                                     val userEntity = UserEntity(
-                                        uid = currentUser?.uid ?: "local_guest",
+                                        uid = effectiveUid,
                                         name = name,
-                                        email = currentUser?.email ?: "guest@hgym.app",
+                                        email = effectiveEmail,
                                         photoUrl = currentUser?.photoUrl?.toString(),
-                                        age = age,
+                                        birthDateTimestamp = System.currentTimeMillis() - (age * 365L * 24 * 3600 * 1000),
                                         sex = sex,
                                         height = height,
                                         currentWeight = weight,
@@ -130,7 +173,7 @@ class MainActivity : ComponentActivity() {
                                     db.userDao().insertUser(userEntity)
 
                                     val initialMeasurement = BodyMeasurementEntity(
-                                        uid = currentUser?.uid ?: "local_guest",
+                                        uid = effectiveUid,
                                         weight = weight,
                                         chest = chest,
                                         waist = waist,

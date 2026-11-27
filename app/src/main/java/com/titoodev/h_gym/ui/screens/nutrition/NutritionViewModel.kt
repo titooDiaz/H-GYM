@@ -4,9 +4,8 @@ import android.app.Application
 import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.titoodev.h_gym.data.local.database.HGymDatabase
+import com.titoodev.h_gym.HGymApplication
 import com.titoodev.h_gym.data.local.entities.FoodLogEntity
-import com.titoodev.h_gym.data.repository.HGymRepository
 import com.titoodev.h_gym.util.DateUtils
 import com.titoodev.h_gym.util.ImageUtils
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -14,15 +13,7 @@ import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
 class NutritionViewModel(application: Application) : AndroidViewModel(application) {
-    private val db = HGymDatabase.getDatabase(application)
-    private val repository = HGymRepository(
-        db.userDao(),
-        db.bodyMeasurementDao(),
-        db.exerciseDao(),
-        db.workoutDao(),
-        db.foodDao(),
-        db.quotaDao()
-    )
+    private val repository = (application as HGymApplication).container.repository
 
     val selectedDateTimestamp = MutableStateFlow(System.currentTimeMillis())
 

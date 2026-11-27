@@ -38,7 +38,7 @@ object CloudSyncManager {
                     "name" to user.name,
                     "email" to user.email,
                     "photoUrl" to (user.photoUrl ?: ""),
-                    "age" to (user.age ?: 0),
+                    "birthDateTimestamp" to (user.birthDateTimestamp ?: 0L),
                     "sex" to (user.sex ?: ""),
                     "height" to (user.height ?: 0f),
                     "currentWeight" to (user.currentWeight ?: 0f),
@@ -95,7 +95,9 @@ object CloudSyncManager {
                     "waist" to (m.waist ?: 0f),
                     "hips" to (m.hips ?: 0f),
                     "arm" to (m.arm ?: 0f),
+                    "forearm" to (m.forearm ?: 0f),
                     "thigh" to (m.thigh ?: 0f),
+                    "calf" to (m.calf ?: 0f),
                     "bodyFatPercentage" to (m.bodyFatPercentage ?: 0f),
                     "timestamp" to m.timestamp
                 )
@@ -133,7 +135,7 @@ object CloudSyncManager {
                     name = userDoc.getString("name") ?: "Atleta",
                     email = userDoc.getString("email") ?: currentUser.email ?: "",
                     photoUrl = userDoc.getString("photoUrl"),
-                    age = userDoc.getLong("age")?.toInt(),
+                    birthDateTimestamp = userDoc.getLong("birthDateTimestamp"),
                     sex = userDoc.getString("sex"),
                     height = userDoc.getDouble("height")?.toFloat(),
                     currentWeight = userDoc.getDouble("currentWeight")?.toFloat(),
@@ -197,7 +199,9 @@ object CloudSyncManager {
                         waist = doc.getDouble("waist")?.toFloat(),
                         hips = doc.getDouble("hips")?.toFloat(),
                         arm = doc.getDouble("arm")?.toFloat(),
+                        forearm = doc.getDouble("forearm")?.toFloat(),
                         thigh = doc.getDouble("thigh")?.toFloat(),
+                        calf = doc.getDouble("calf")?.toFloat(),
                         bodyFatPercentage = doc.getDouble("bodyFatPercentage")?.toFloat(),
                         timestamp = doc.getLong("timestamp") ?: System.currentTimeMillis()
                     )

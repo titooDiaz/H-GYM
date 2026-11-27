@@ -8,6 +8,8 @@ sealed class Screen(val route: String, val title: String) {
     object Progress : Screen("progress", "Mapa de Constancia y Evolución")
     object Nutrition : Screen("nutrition", "Alimentación")
     object Community : Screen("community", "Comunidad")
+    object Profile : Screen("profile", "Mi Perfil")
+    object QuotaAdmin : Screen("quota_admin", "Monitor de Cuotas Spark")
 
     companion object {
         fun fromRoute(route: String?): Screen {
@@ -19,6 +21,8 @@ sealed class Screen(val route: String, val title: String) {
                 Progress.route -> Progress
                 Nutrition.route -> Nutrition
                 Community.route -> Community
+                Profile.route -> Profile
+                QuotaAdmin.route -> QuotaAdmin
                 else -> Home
             }
         }

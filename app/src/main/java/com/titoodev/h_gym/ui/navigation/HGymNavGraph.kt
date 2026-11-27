@@ -3,6 +3,9 @@ package com.titoodev.h_gym.ui.navigation
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AccountCircle
+import androidx.compose.material.icons.filled.DataUsage
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -18,10 +21,12 @@ import androidx.navigation.compose.rememberNavController
 import com.titoodev.h_gym.R
 import com.titoodev.h_gym.ui.components.HGymDatePickerBar
 import com.titoodev.h_gym.ui.components.rememberHGymHaptics
+import com.titoodev.h_gym.ui.screens.admin.QuotaAdminScreen
 import com.titoodev.h_gym.ui.screens.community.CommunityScreen
 import com.titoodev.h_gym.ui.screens.exercises.ExerciseCatalogScreen
 import com.titoodev.h_gym.ui.screens.home.HomeScreen
 import com.titoodev.h_gym.ui.screens.nutrition.NutritionScreen
+import com.titoodev.h_gym.ui.screens.profile.ProfileScreen
 import com.titoodev.h_gym.ui.screens.progress.ProgressScreen
 import com.titoodev.h_gym.ui.screens.routines.RoutinesScreen
 import com.titoodev.h_gym.ui.screens.workout.WorkoutScreen
@@ -59,6 +64,20 @@ fun HGymMainScreen(
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onBackground
                             )
+                        }
+                    },
+                    actions = {
+                        IconButton(onClick = {
+                            haptics.performClick()
+                            navController.navigate(Screen.QuotaAdmin.route)
+                        }) {
+                            Icon(Icons.Default.DataUsage, contentDescription = "Monitor de Cuotas", tint = MaterialTheme.colorScheme.primary)
+                        }
+                        IconButton(onClick = {
+                            haptics.performClick()
+                            navController.navigate(Screen.Profile.route)
+                        }) {
+                            Icon(Icons.Default.AccountCircle, contentDescription = "Mi Perfil", tint = MaterialTheme.colorScheme.primary)
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
@@ -130,6 +149,8 @@ fun HGymMainScreen(
             }
             composable(Screen.Progress.route) { ProgressScreen() }
             composable(Screen.Community.route) { CommunityScreen() }
+            composable(Screen.Profile.route) { ProfileScreen(onSignOut = onSignOut) }
+            composable(Screen.QuotaAdmin.route) { QuotaAdminScreen() }
         }
     }
 

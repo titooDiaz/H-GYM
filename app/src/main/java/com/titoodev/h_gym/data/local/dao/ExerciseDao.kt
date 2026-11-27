@@ -5,7 +5,6 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import com.titoodev.h_gym.data.local.entities.ExerciseEntity
-import com.titoodev.h_gym.data.local.entities.ExercisePerformanceEntity
 import com.titoodev.h_gym.data.local.entities.WorkoutSetEntity
 import kotlinx.coroutines.flow.Flow
 
@@ -26,21 +25,12 @@ interface ExerciseDao {
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertAll(exercises: List<ExerciseEntity>)
 
-    @Query("SELECT * FROM exercise_performances WHERE exerciseId = :exerciseId ORDER BY timestamp DESC")
-    fun getPerformanceHistory(exerciseId: Long): Flow<List<ExercisePerformanceEntity>>
-
     @Query("SELECT * FROM workout_sets WHERE exerciseId = :exerciseId ORDER BY id DESC")
     fun getSetsHistoryForExercise(exerciseId: Long): Flow<List<WorkoutSetEntity>>
-
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertPerformance(performance: ExercisePerformanceEntity)
 
     @Query("DELETE FROM exercises WHERE id = :exerciseId")
     suspend fun deleteExercise(exerciseId: Long)
 
     @Query("SELECT COUNT(*) FROM routine_items WHERE exerciseId = :exerciseId")
     suspend fun getRoutinesCountForExercise(exerciseId: Long): Int
-
-    @Query("DELETE FROM exercises WHERE isCustom = 0")
-    suspend fun clearSystemSeededExercises()
 }

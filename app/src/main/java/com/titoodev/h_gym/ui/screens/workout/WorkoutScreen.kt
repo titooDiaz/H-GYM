@@ -57,6 +57,7 @@ fun WorkoutScreen(
     viewModel: WorkoutViewModel = viewModel()
 ) {
     val haptics = rememberHGymHaptics()
+    var workoutSubTab by remember { mutableIntStateOf(0) }
 
     val workoutsWithSetsState by viewModel.workoutsWithSetsState.collectAsState()
     val routinesState by viewModel.routinesWithItemsState.collectAsState()
@@ -190,13 +191,73 @@ fun WorkoutScreen(
         }
     }
 
-    LazyColumn(
+    Column(
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
-            .padding(horizontal = 16.dp, vertical = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
+        if (!isWorkoutActive) {
+            SecondaryTabRow(selectedTabIndex = workoutSubTab) {
+                Tab(
+                    selected = workoutSubTab == 0,
+                    onClick = {
+                        haptics.performClick()
+                        workoutSubTab = 0
+                    },
+                    text = { Text("Entrenar", fontWeight = FontWeight.Bold) }
+                )
+                Tab(
+                    selected = workoutSubTab == 1,
+                    onClick = {
+                        haptics.performClick()
+                        workoutSubTab = 1
+                    },
+                    text = { Text("Mis Rutinas", fontWeight = FontWeight.Bold) }
+                )
+                Tab(
+                    selected = workoutSubTab == 2,
+                    onClick = {
+                        haptics.performClick()
+                        workoutSubTab = 2
+                    },
+                    text = { Text("Biblioteca", fontWeight = FontWeight.Bold) }
+                )
+            }
+        }
+
+        Box(modifier = Modifier.weight(1f)) {
+            when {
+                !isWorkoutActive && workoutSubTab == 1 -> {
+                    com.titoodev.h_gym.ui.screens.routines.RoutinesScreen(
+                        onStartRoutine = { routineId ->
+                            workoutSubTab = 0
+                            val rItem = routinesState.find { it.routine.id == routineId }
+                            if (rItem != null) {
+                                activeWorkoutTitle = rItem.routine.name
+                                activeRoutineId = rItem.routine.id
+                                isWorkoutActive = true
+                                sessionStartTime = System.currentTimeMillis()
+                                elapsedSeconds = 0L
+
+                                val exerciseMap = allExercisesState.associateBy { it.id }
+                                currentExercises = rItem.items.sortedBy { it.orderIndex }.mapNotNull { item ->
+                                    val ex = exerciseMap[item.exerciseId]
+                                    if (ex != null) loadExerciseWithHistory(ex.id, ex.name, ex.muscleGroup, ex.localPhotoPath, rItem.routine.id) else null
+                                }
+                            }
+                        }
+                    )
+                }
+                !isWorkoutActive && workoutSubTab == 2 -> {
+                    com.titoodev.h_gym.ui.screens.exercises.ExerciseCatalogScreen()
+                }
+                else -> {
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
         // Sticky Session Control Top Card
         if (isWorkoutActive) {
             item {
@@ -901,4 +962,8 @@ fun WorkoutScreen(
             }
         )
     }
+}
+}
+}
+}
 }

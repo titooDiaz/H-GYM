@@ -3,11 +3,10 @@ package com.titoodev.h_gym.ui.screens.progress
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.titoodev.h_gym.data.local.database.HGymDatabase
+import com.titoodev.h_gym.HGymApplication
 import com.titoodev.h_gym.data.local.entities.BodyMeasurementEntity
 import com.titoodev.h_gym.data.local.entities.ExerciseEntity
 import com.titoodev.h_gym.data.local.entities.WorkoutWithSets
-import com.titoodev.h_gym.data.repository.HGymRepository
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
@@ -20,15 +19,7 @@ data class Exercise1RMInfo(
 )
 
 class ProgressViewModel(application: Application) : AndroidViewModel(application) {
-    private val db = HGymDatabase.getDatabase(application)
-    private val repository = HGymRepository(
-        db.userDao(),
-        db.bodyMeasurementDao(),
-        db.exerciseDao(),
-        db.workoutDao(),
-        db.foodDao(),
-        db.quotaDao()
-    )
+    private val repository = (application as HGymApplication).container.repository
 
     val allMeasurementsState: StateFlow<List<BodyMeasurementEntity>> = repository.measurementsFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -75,7 +66,9 @@ class ProgressViewModel(application: Application) : AndroidViewModel(application
         waist: Float?,
         hips: Float?,
         arm: Float?,
+        forearm: Float? = null,
         thigh: Float?,
+        calf: Float? = null,
         bodyFatPercentage: Float?
     ) {
         viewModelScope.launch {
@@ -87,7 +80,9 @@ class ProgressViewModel(application: Application) : AndroidViewModel(application
                 waist = waist,
                 hips = hips,
                 arm = arm,
+                forearm = forearm,
                 thigh = thigh,
+                calf = calf,
                 bodyFatPercentage = bodyFatPercentage,
                 timestamp = System.currentTimeMillis()
             )

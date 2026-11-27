@@ -4,6 +4,7 @@ import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import java.util.UUID
 
 @Entity(
     tableName = "workout_sets",
@@ -28,7 +29,14 @@ data class WorkoutSetEntity(
     val weight: Float,
     val reps: Int,
     val rirOrRpe: Float? = null,
+    val restSeconds: Int? = null,
     val durationSeconds: Long = 0L,
     val unit: String = "kg",
-    val notes: String? = null
+    val notes: String? = null,
+    val syncId: String = UUID.randomUUID().toString(),
+    val createdAt: Long = System.currentTimeMillis(),
+    val updatedAt: Long = System.currentTimeMillis(),
+    val version: Long = 1L,
+    val deletedAt: Long? = null,
+    val syncState: String = "SYNCED"
 )

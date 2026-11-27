@@ -5,18 +5,18 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.TrendingUp
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.CalendarMonth
-import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.FitnessCenter
+import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
-import com.titoodev.h_gym.ui.components.DuolingoGreen
 import com.titoodev.h_gym.ui.components.rememberHGymHaptics
 
 @Composable
@@ -26,11 +26,13 @@ fun HGymBottomBar(
     onQuickActionClick: () -> Unit
 ) {
     val haptics = rememberHGymHaptics()
+    val activeColor = MaterialTheme.colorScheme.primary
+    val inactiveColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
 
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 10.dp),
+            .padding(horizontal = 12.dp, vertical = 8.dp),
         contentAlignment = Alignment.BottomCenter
     ) {
         Surface(
@@ -45,11 +47,11 @@ fun HGymBottomBar(
             Row(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(horizontal = 12.dp),
+                    .padding(horizontal = 8.dp),
                 horizontalArrangement = Arrangement.SpaceAround,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // 1. Hoy (Home)
+                // 1. Inicio
                 IconButton(
                     onClick = {
                         haptics.performClick()
@@ -58,22 +60,22 @@ fun HGymBottomBar(
                 ) {
                     Icon(
                         imageVector = Icons.Default.Home,
-                        contentDescription = "Hoy",
-                        tint = if (currentRoute == Screen.Home.route) DuolingoGreen else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                        contentDescription = "Inicio",
+                        tint = if (currentRoute == Screen.Home.route) activeColor else inactiveColor
                     )
                 }
 
-                // 2. Rutinas
+                // 2. Alimentación
                 IconButton(
                     onClick = {
                         haptics.performClick()
-                        onNavigate(Screen.Routines.route)
+                        onNavigate(Screen.Nutrition.route)
                     }
                 ) {
                     Icon(
-                        imageVector = Icons.Default.CalendarMonth,
-                        contentDescription = "Rutinas",
-                        tint = if (currentRoute == Screen.Routines.route) DuolingoGreen else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                        imageVector = Icons.Default.Restaurant,
+                        contentDescription = "Alimentación",
+                        tint = if (currentRoute == Screen.Nutrition.route) activeColor else inactiveColor
                     )
                 }
 
@@ -82,7 +84,7 @@ fun HGymBottomBar(
                     modifier = Modifier
                         .size(48.dp)
                         .clip(RoundedCornerShape(16.dp))
-                        .background(DuolingoGreen)
+                        .background(MaterialTheme.colorScheme.primary)
                         .clickable {
                             haptics.performSuccess()
                             onQuickActionClick()
@@ -96,21 +98,21 @@ fun HGymBottomBar(
                     )
                 }
 
-                // 3. Ejercicios
+                // 3. Entrenamiento (Workout + Subrutinas / Ejercicios)
                 IconButton(
                     onClick = {
                         haptics.performClick()
-                        onNavigate(Screen.Exercises.route)
+                        onNavigate(Screen.Workout.route)
                     }
                 ) {
                     Icon(
                         imageVector = Icons.Default.FitnessCenter,
-                        contentDescription = "Ejercicios",
-                        tint = if (currentRoute == Screen.Exercises.route) DuolingoGreen else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                        contentDescription = "Entrenamiento",
+                        tint = if (currentRoute == Screen.Workout.route || currentRoute == Screen.Routines.route || currentRoute == Screen.Exercises.route) activeColor else inactiveColor
                     )
                 }
 
-                // 4. Progreso / Mapa de Cumplimiento
+                // 4. Evolución
                 IconButton(
                     onClick = {
                         haptics.performClick()
@@ -118,9 +120,23 @@ fun HGymBottomBar(
                     }
                 ) {
                     Icon(
-                        imageVector = Icons.Default.EmojiEvents,
-                        contentDescription = "Progreso",
-                        tint = if (currentRoute == Screen.Progress.route) DuolingoGreen else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                        imageVector = Icons.AutoMirrored.Filled.TrendingUp,
+                        contentDescription = "Evolución",
+                        tint = if (currentRoute == Screen.Progress.route) activeColor else inactiveColor
+                    )
+                }
+
+                // 5. Comunidad
+                IconButton(
+                    onClick = {
+                        haptics.performClick()
+                        onNavigate(Screen.Community.route)
+                    }
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Groups,
+                        contentDescription = "Comunidad",
+                        tint = if (currentRoute == Screen.Community.route) activeColor else inactiveColor
                     )
                 }
             }
