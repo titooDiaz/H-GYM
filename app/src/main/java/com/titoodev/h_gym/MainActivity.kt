@@ -24,6 +24,7 @@ import com.titoodev.h_gym.ui.screens.auth.LoginScreen
 import com.titoodev.h_gym.ui.screens.auth.RegistrationWizardScreen
 import com.titoodev.h_gym.ui.theme.HGYMTheme
 import com.titoodev.h_gym.ui.theme.ThemeVariant
+import com.titoodev.h_gym.util.ImageUtils
 import kotlinx.coroutines.launch
 import java.util.UUID
 
@@ -46,7 +47,6 @@ class MainActivity : ComponentActivity() {
                 val credential = GoogleAuthProvider.getCredential(idToken, null)
                 val currentUser = auth.currentUser
                 if (currentUser != null && currentUser.isAnonymous) {
-                    // Link guest account to Google credentials to preserve local data
                     currentUser.linkWithCredential(credential)
                         .addOnCompleteListener(this) { linkTask ->
                             if (linkTask.isSuccessful) {
@@ -137,7 +137,6 @@ class MainActivity : ComponentActivity() {
                                     if (task.isSuccessful) {
                                         isAuthenticatedState = true
                                     } else {
-                                        // Offline guest fallback
                                         isAuthenticatedState = true
                                     }
                                 }
@@ -152,38 +151,48 @@ class MainActivity : ComponentActivity() {
                         RegistrationWizardScreen(
                             initialName = currentUser?.displayName ?: "Atleta Invitado",
                             initialEmail = effectiveEmail,
-                            onRegistrationCompleted = { name, age, sex, height, weight, goals, expLevel, freq, trainType, chest, waist, hips, arm, thigh, bodyFat ->
+                            onRegistrationCompleted = { name, birthTimestamp, sex, height, weight, goals, expLevel, trainingDays, trainType, photoUri, chest, waist, hips, arm, forearm, thigh, calf, bodyFat ->
                                 coroutineScope.launch {
                                     val now = System.currentTimeMillis()
+                                    var photoPath: String? = null
+                                    if (photoUri != null) {
+                                        val compressedFile = ImageUtils.compressImageTo100Kb(applicationContext, photoUri)
+                                        photoPath = compressedFile?.absolutePath
+                                    }
+
                                     val userEntity = UserEntity(
                                         uid = effectiveUid,
                                         name = name,
                                         email = effectiveEmail,
-                                        photoUrl = currentUser?.photoUrl?.toString(),
-                                        birthDateTimestamp = System.currentTimeMillis() - (age * 365L * 24 * 3600 * 1000),
+                                        photoUrl = photoPath ?: currentUser?.photoUrl?.toString(),
+                                        birthDateTimestamp = birthTimestamp,
                                         sex = sex,
                                         height = height,
                                         currentWeight = weight,
                                         goals = goals.joinToString(","),
                                         experienceLevel = expLevel,
-                                        trainingFrequency = freq,
+                                        trainingFrequency = trainingDays.split(",").size.coerceAtLeast(1),
                                         preferredTrainingType = trainType,
                                         updatedAt = now
                                     )
                                     db.userDao().insertUser(userEntity)
 
-                                    val initialMeasurement = BodyMeasurementEntity(
-                                        uid = effectiveUid,
-                                        weight = weight,
-                                        chest = chest,
-                                        waist = waist,
-                                        hips = hips,
-                                        arm = arm,
-                                        thigh = thigh,
-                                        bodyFatPercentage = bodyFat,
-                                        timestamp = now
-                                    )
-                                    db.bodyMeasurementDao().insertMeasurement(initialMeasurement)
+                                    if (weight != null && weight > 0f) {
+                                        val initialMeasurement = BodyMeasurementEntity(
+                                            uid = effectiveUid,
+                                            weight = weight,
+                                            chest = chest,
+                                            waist = waist,
+                                            hips = hips,
+                                            arm = arm,
+                                            forearm = forearm,
+                                            thigh = thigh,
+                                            calf = calf,
+                                            bodyFatPercentage = bodyFat,
+                                            timestamp = now
+                                        )
+                                        db.bodyMeasurementDao().insertMeasurement(initialMeasurement)
+                                    }
                                     isProfileCompletedState = true
                                 }
                             }

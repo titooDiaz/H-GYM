@@ -8,6 +8,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -57,8 +58,11 @@ fun ExerciseCatalogScreen(
 
     var exerciseNameInput by remember { mutableStateOf("") }
     var exerciseDescInput by remember { mutableStateOf("") }
+    var secondaryMusclesInput by remember { mutableStateOf("") }
+    var personalNotesInput by remember { mutableStateOf("") }
     var selectedMuscleGroup by remember { mutableStateOf("Pecho") }
     var selectedEquipment by remember { mutableStateOf("Barra") }
+    var selectedExerciseType by remember { mutableStateOf("Fuerza") }
     var selectedPhotoUri by remember { mutableStateOf<Uri?>(null) }
     var tempCameraUri by remember { mutableStateOf<Uri?>(null) }
 
@@ -85,7 +89,10 @@ fun ExerciseCatalogScreen(
         }
     }
 
-    val muscleGroups = listOf("Pecho", "Espalda", "Piernas", "Hombros", "Brazos", "Core", "General")
+    val allCategories = listOf(
+        "Pecho", "Espalda", "Piernas", "Hombros", "Brazos", "Antebrazos",
+        "Pantorrillas", "Abs / Core", "Glúteos", "Cardio", "Movilidad / Estiramientos", "Funcional / Calistenia"
+    )
 
     Box(
         modifier = Modifier
@@ -100,7 +107,7 @@ fun ExerciseCatalogScreen(
         ) {
             item {
                 Text(
-                    text = "Tus Ejercicios (${exercisesState.size})",
+                    text = "Biblioteca de Ejercicios (${exercisesState.size})",
                     fontSize = 20.sp,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onBackground
@@ -117,14 +124,14 @@ fun ExerciseCatalogScreen(
                                 .padding(16.dp)
                         ) {
                             Text(
-                                text = "💡 Aún no tienes ejercicios en tu biblioteca",
+                                text = "💡 No hay ejercicios creados",
                                 fontSize = 16.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.primary
                             )
                             Spacer(modifier = Modifier.height(6.dp))
                             Text(
-                                text = "Pulsa el botón + verde para crear tu primer ejercicio con foto y descripción.",
+                                text = "Pulsa el botón + verde para crear tu primer ejercicio personalizado con foto y técnica.",
                                 fontSize = 13.sp,
                                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
                             )
@@ -182,8 +189,11 @@ fun ExerciseCatalogScreen(
                                         editingExerciseId = exercise.id
                                         exerciseNameInput = exercise.name
                                         exerciseDescInput = exercise.description ?: ""
+                                        secondaryMusclesInput = exercise.secondaryMuscles ?: ""
+                                        personalNotesInput = exercise.personalNotes ?: ""
                                         selectedMuscleGroup = exercise.muscleGroup
-                                        selectedEquipment = exercise.equipment ?: "Libre"
+                                        selectedEquipment = exercise.equipment ?: "Barra"
+                                        selectedExerciseType = exercise.exerciseType
                                         selectedPhotoUri = null
                                         isNameError = false
                                         showEditDialog = true
@@ -223,8 +233,11 @@ fun ExerciseCatalogScreen(
                     editingExerciseId = 0L
                     exerciseNameInput = ""
                     exerciseDescInput = ""
+                    secondaryMusclesInput = ""
+                    personalNotesInput = ""
                     selectedMuscleGroup = "Pecho"
                     selectedEquipment = "Barra"
+                    selectedExerciseType = "Fuerza"
                     selectedPhotoUri = null
                     isNameError = false
                     showEditDialog = true
@@ -250,7 +263,7 @@ fun ExerciseCatalogScreen(
             text = {
                 LazyColumn(
                     verticalArrangement = Arrangement.spacedBy(12.dp),
-                    modifier = Modifier.heightIn(max = 420.dp)
+                    modifier = Modifier.heightIn(max = 440.dp)
                 ) {
                     item {
                         OutlinedTextField(
@@ -270,32 +283,9 @@ fun ExerciseCatalogScreen(
                     }
 
                     item {
-                        OutlinedTextField(
-                            value = exerciseDescInput,
-                            onValueChange = { exerciseDescInput = it },
-                            label = { Text("Descripción / Técnica (opcional)") },
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(12.dp)
-                        )
-                        if (exerciseDescInput.isBlank()) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                                modifier = Modifier.padding(top = 2.dp)
-                            ) {
-                                Icon(Icons.Default.Info, contentDescription = null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.primary)
-                                Text("Se recomienda añadir una breve descripción para recordar la técnica", fontSize = 11.sp, color = MaterialTheme.colorScheme.primary)
-                            }
-                        }
-                    }
-
-                    item {
                         Text("Grupo Muscular Principal", fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            muscleGroups.take(4).forEach { mg ->
+                        LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            items(allCategories) { mg ->
                                 FilterChip(
                                     selected = selectedMuscleGroup == mg,
                                     onClick = {
@@ -306,6 +296,26 @@ fun ExerciseCatalogScreen(
                                 )
                             }
                         }
+                    }
+
+                    item {
+                        OutlinedTextField(
+                            value = secondaryMusclesInput,
+                            onValueChange = { secondaryMusclesInput = it },
+                            label = { Text("Músculos Secundarios (opcional)") },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp)
+                        )
+                    }
+
+                    item {
+                        OutlinedTextField(
+                            value = exerciseDescInput,
+                            onValueChange = { exerciseDescInput = it },
+                            label = { Text("Descripción / Técnica") },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp)
+                        )
                     }
 
                     item {
@@ -344,12 +354,6 @@ fun ExerciseCatalogScreen(
                                 Text("Galería", fontSize = 12.sp)
                             }
                         }
-
-                        if (selectedPhotoUri == null) {
-                            Text("Se recomienda incluir foto para identificarlo rápidamente", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
-                        } else {
-                            Text("✓ Foto seleccionada", fontSize = 12.sp, color = DuolingoGreen, fontWeight = FontWeight.Bold)
-                        }
                     }
                 }
             },
@@ -366,7 +370,10 @@ fun ExerciseCatalogScreen(
                                 description = exerciseDescInput.ifBlank { null },
                                 photoUri = selectedPhotoUri,
                                 muscleGroup = selectedMuscleGroup,
-                                equipment = selectedEquipment
+                                secondaryMuscles = secondaryMusclesInput.ifBlank { null },
+                                equipment = selectedEquipment,
+                                exerciseType = selectedExerciseType,
+                                personalNotes = personalNotesInput.ifBlank { null }
                             )
                             showEditDialog = false
                         }
@@ -387,25 +394,20 @@ fun ExerciseCatalogScreen(
         val ex = exerciseToDelete!!
         AlertDialog(
             onDismissRequest = { showDeleteConfirmationDialog = false },
-            title = { Text("¿Eliminar Ejercicio?", fontWeight = FontWeight.Bold) },
+            title = { Text("¿Archivar Ejercicio?", fontWeight = FontWeight.Bold) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Vas a eliminar el ejercicio '${ex.name}'.")
-                    if (routinesInUseCount > 0) {
-                        Text(
-                            text = "⚠️ ATENCIÓN: Este ejercicio forma parte de $routinesInUseCount rutina(s) activa(s). Se eliminará del catálogo pero tus registros de entrenamientos pasados NO se perderán.",
-                            color = MaterialTheme.colorScheme.error,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                    } else {
-                        Text("Esta acción no se puede deshacer.")
-                    }
+                    Text("Vas a archivar el ejercicio '${ex.name}'.")
+                    Text(
+                        text = "El ejercicio se ocultará del catálogo para nuevas rutinas, pero tu historial de entrenamientos pasados permanecerá 100% intacto.",
+                        fontSize = 13.sp,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                    )
                 }
             },
             confirmButton = {
                 DuolingoButton(
-                    text = "Eliminar",
+                    text = "Archivar",
                     onClick = {
                         viewModel.deleteExercise(ex.id)
                         showDeleteConfirmationDialog = false

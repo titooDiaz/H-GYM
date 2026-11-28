@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 1,
-    "identityHash": "133dbd329f30baca5932ee0f138c0437",
+    "identityHash": "c381de69b6535bc5ee80805ddbcd36af",
     "entities": [
       {
         "tableName": "users",
@@ -284,7 +284,7 @@
       },
       {
         "tableName": "exercises",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `name` TEXT NOT NULL, `muscleGroup` TEXT NOT NULL, `secondaryMuscles` TEXT, `description` TEXT, `localPhotoPath` TEXT, `equipment` TEXT, `exerciseType` TEXT NOT NULL, `personalNotes` TEXT, `isCustom` INTEGER NOT NULL)",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `name` TEXT NOT NULL, `muscleGroup` TEXT NOT NULL, `secondaryMuscles` TEXT, `description` TEXT, `localPhotoPath` TEXT, `equipment` TEXT, `exerciseType` TEXT NOT NULL, `personalNotes` TEXT, `isCustom` INTEGER NOT NULL, `syncId` TEXT NOT NULL, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, `version` INTEGER NOT NULL, `deletedAt` INTEGER, `syncState` TEXT NOT NULL)",
         "fields": [
           {
             "fieldPath": "id",
@@ -339,6 +339,41 @@
             "fieldPath": "isCustom",
             "columnName": "isCustom",
             "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "syncId",
+            "columnName": "syncId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "createdAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updatedAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "version",
+            "columnName": "version",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "deletedAt",
+            "columnName": "deletedAt",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "syncState",
+            "columnName": "syncState",
+            "affinity": "TEXT",
             "notNull": true
           }
         ],
@@ -864,7 +899,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '133dbd329f30baca5932ee0f138c0437')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'c381de69b6535bc5ee80805ddbcd36af')"
     ]
   }
 }

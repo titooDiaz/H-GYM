@@ -22,19 +22,32 @@ class WorkoutViewModel(application: Application) : AndroidViewModel(application)
     val allExercisesState: StateFlow<List<ExerciseEntity>> = repository.exercisesFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    fun checkIncompleteWorkout(onFound: (WorkoutEntity) -> Unit) {
+        viewModelScope.launch {
+            val incomplete = repository.getIncompleteWorkout()
+            if (incomplete != null) {
+                onFound(incomplete)
+            }
+        }
+    }
+
     fun saveWorkoutSession(
         title: String,
         startTime: Long,
         durationSeconds: Long,
         notes: String?,
-        sets: List<WorkoutSetEntity>
+        sets: List<WorkoutSetEntity>,
+        routineId: Long? = null,
+        status: String = "COMPLETED"
     ) {
         viewModelScope.launch {
             val workout = WorkoutEntity(
                 title = title,
                 date = startTime,
                 durationSeconds = durationSeconds,
-                notes = notes
+                notes = notes,
+                routineId = routineId,
+                status = status
             )
             val workoutId = repository.saveWorkout(workout)
             sets.forEach { setItem ->

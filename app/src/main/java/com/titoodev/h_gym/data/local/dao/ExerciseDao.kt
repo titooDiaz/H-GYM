@@ -10,10 +10,10 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface ExerciseDao {
-    @Query("SELECT * FROM exercises ORDER BY muscleGroup ASC, name ASC")
+    @Query("SELECT * FROM exercises WHERE deletedAt IS NULL ORDER BY muscleGroup ASC, name ASC")
     fun getAllExercises(): Flow<List<ExerciseEntity>>
 
-    @Query("SELECT * FROM exercises WHERE muscleGroup = :muscleGroup ORDER BY name ASC")
+    @Query("SELECT * FROM exercises WHERE muscleGroup = :muscleGroup AND deletedAt IS NULL ORDER BY name ASC")
     fun getExercisesByMuscleGroup(muscleGroup: String): Flow<List<ExerciseEntity>>
 
     @Query("SELECT * FROM exercises WHERE id = :exerciseId LIMIT 1")
@@ -27,6 +27,9 @@ interface ExerciseDao {
 
     @Query("SELECT * FROM workout_sets WHERE exerciseId = :exerciseId ORDER BY id DESC")
     fun getSetsHistoryForExercise(exerciseId: Long): Flow<List<WorkoutSetEntity>>
+
+    @Query("UPDATE exercises SET deletedAt = :timestamp, syncState = 'PENDING_DELETE' WHERE id = :exerciseId")
+    suspend fun archiveExercise(exerciseId: Long, timestamp: Long = System.currentTimeMillis())
 
     @Query("DELETE FROM exercises WHERE id = :exerciseId")
     suspend fun deleteExercise(exerciseId: Long)

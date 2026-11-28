@@ -23,25 +23,33 @@ class ExerciseCatalogViewModel(application: Application) : AndroidViewModel(appl
         name: String,
         description: String?,
         photoUri: Uri?,
-        muscleGroup: String = "General",
-        equipment: String? = "Libre"
+        muscleGroup: String = "Pecho",
+        secondaryMuscles: String? = null,
+        equipment: String? = "Barra",
+        exerciseType: String = "Fuerza",
+        personalNotes: String? = null
     ) {
         viewModelScope.launch {
-            var compressedPath: String? = null
+            val existing = if (id > 0L) repository.getExerciseById(id) else null
+            var compressedPath: String? = existing?.localPhotoPath
+
             if (photoUri != null) {
                 val compressedFile = ImageUtils.compressImageTo100Kb(getApplication(), photoUri)
-                compressedPath = compressedFile?.absolutePath
+                compressedPath = compressedFile?.absolutePath ?: existing?.localPhotoPath
             }
 
             val exercise = ExerciseEntity(
                 id = id,
                 name = name,
                 muscleGroup = muscleGroup,
+                secondaryMuscles = secondaryMuscles,
                 description = description,
                 localPhotoPath = compressedPath,
                 equipment = equipment,
-                exerciseType = "Fuerza",
-                isCustom = true
+                exerciseType = exerciseType,
+                personalNotes = personalNotes,
+                isCustom = true,
+                updatedAt = System.currentTimeMillis()
             )
             repository.addExercise(exercise)
         }
